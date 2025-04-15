@@ -45,7 +45,7 @@ const calculateProfitLossPrompt = ai.definePrompt({
       profitLoss: z.number().describe('The calculated profit or loss.'),
     }),
   },
-  prompt: `You are a financial expert. Calculate the profit or loss based on the following information:\n\nToken Name: {{{tokenName}}}\nPurchase Date: {{{purchaseDate}}}\nPurchase Price: {{{purchasePrice}}}\nCurrent Price: {{{currentPrice}}}\nQuantity: {{{quantity}}}\n\nCalculate the profit/loss by subtracting the purchase price from the current price, then multiplying by the quantity.\nReturn only the profit/loss amount. Do not include any explanations or additional text.`, 
+  prompt: `You are a financial expert. Calculate the profit or loss based on the following information:\n\nToken Name: {{{tokenName}}}\nPurchase Date: {{{purchaseDate}}}\nPurchase Price: {{{purchasePrice}}}\nCurrent Price: {{{currentPrice}}}\nQuantity: {{{quantity}}}\n\nCalculate the profit/loss by subtracting the purchase price from the current price, then multiplying by the quantity.\nReturn only the profit/loss amount. Do not include any explanations or additional text.`,
 });
 
 const calculateProfitLossFlow = ai.defineFlow<
@@ -61,14 +61,16 @@ const calculateProfitLossFlow = ai.defineFlow<
     const tokenInfo = await getTokenInfo(input.tokenName);
     const currentPrice = tokenInfo.currentPrice;
 
-    const {output} = await calculateProfitLossPrompt({
+    const promptOutput = await calculateProfitLossPrompt({
       ...input,
       currentPrice,
     });
+    
+    const profitLoss = (currentPrice - input.purchasePrice) * input.quantity;
 
     return {
-      ...output,
-      currentPrice,
+      currentPrice: currentPrice,
+      profitLoss: profitLoss,
     };
   }
 );
