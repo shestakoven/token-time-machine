@@ -83,107 +83,109 @@ export default function Home() {
   const profitText = profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss";
 
   return (
-    <div className="flex justify-center items-center min-h-screen py-12 bg-background">
-      <Card className="w-full max-w-md p-6">
-        <CardHeader>
-          <CardTitle>Token Time Machine</CardTitle>
-          <CardDescription>
-            Enter the token details to calculate potential profit/loss.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <label htmlFor="token-name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Token Name/Symbol
-            </label>
-            <Input
-              id="token-name"
-              placeholder="e.g., BTC"
-              value={tokenName}
-              onChange={(e) => setTokenName(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="purchase-date" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Purchase Date
-            </label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !purchaseDate && "text-muted-foreground"
-                  )}
-                >
-                  {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={purchaseDate}
-                  onSelect={setPurchaseDate}
-                  disabled={(date) =>
-                    date > new Date() || date < new Date("2009-01-03")
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="purchase-price" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Purchase Price
-            </label>
-            <Input
-              id="purchase-price"
-              type="number"
-              placeholder="e.g., 30000"
-              value={purchasePrice === undefined ? "" : purchasePrice.toString()}
-              onChange={(e) => setPurchasePrice(e.target.value ? parseFloat(e.target.value) : undefined)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="quantity" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Quantity
-            </label>
-            <Input
-              id="quantity"
-              type="number"
-              placeholder="e.g., 1"
-              value={quantity === undefined ? "" : quantity.toString()}
-              onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : undefined)}
-            />
-          </div>
-          <Button onClick={calculateResult} disabled={isLoading}>
-            {isLoading ? "Calculating..." : "Calculate"}
-          </Button>
-
-          {profitLossResult && (
-            <div className="mt-4">
-              <p>
-                Current Price: ${profitLossResult.currentPrice.toFixed(2)}
-              </p>
-              <p className={profitColor}>
-                {profitText}: ${profitLossResult.profitLoss.toFixed(2)}
-              </p>
+    <div className="flex h-screen bg-background">
+      <div className="flex flex-col justify-center items-center p-6 w-1/2">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Token Time Machine</CardTitle>
+            <CardDescription>
+              Enter the token details to calculate potential profit/loss.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <label htmlFor="token-name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Token Name/Symbol
+              </label>
+              <Input
+                id="token-name"
+                placeholder="e.g., BTC"
+                value={tokenName}
+                onChange={(e) => setTokenName(e.target.value)}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="grid gap-2">
+              <label htmlFor="purchase-date" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Purchase Date
+              </label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !purchaseDate && "text-muted-foreground"
+                    )}
+                  >
+                    {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={purchaseDate}
+                    onSelect={setPurchaseDate}
+                    disabled={(date) =>
+                      date > new Date() || date < new Date("2009-01-03")
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="purchase-price" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Purchase Price
+              </label>
+              <Input
+                id="purchase-price"
+                type="number"
+                placeholder="e.g., 30000"
+                value={purchasePrice === undefined ? "" : purchasePrice.toString()}
+                onChange={(e) => setPurchasePrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="quantity" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Quantity
+              </label>
+              <Input
+                id="quantity"
+                type="number"
+                placeholder="e.g., 1"
+                value={quantity === undefined ? "" : quantity.toString()}
+                onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : undefined)}
+              />
+            </div>
+            <Button onClick={calculateResult} disabled={isLoading}>
+              {isLoading ? "Calculating..." : "Calculate"}
+            </Button>
+
+            {profitLossResult && (
+              <div className="mt-4">
+                <p>
+                  Current Price: ${profitLossResult.currentPrice.toFixed(2)}
+                </p>
+                <p className={profitColor}>
+                  {profitText}: ${profitLossResult.profitLoss.toFixed(2)}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Calculation History */}
-      {calculationHistory.length > 0 && (
-        <Card className="w-full max-w-md mt-4">
+      <div className="w-1/2 h-screen p-6 overflow-y-auto">
+        <Card className="h-full">
           <CardHeader>
             <CardTitle>Calculation History</CardTitle>
             <CardDescription>
               Past calculations for reference.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[200px] w-full rounded-md border">
+          <CardContent className="h-full">
+            <ScrollArea className="h-[calc(100vh-200px)] w-full rounded-md border">
               <div className="p-4">
                 {calculationHistory.map((item, index) => (
                   <div key={index} className="mb-4">
@@ -201,7 +203,7 @@ export default function Home() {
             </ScrollArea>
           </CardContent>
         </Card>
-      )}
+      </div>
     </div>
   );
 }
