@@ -11,10 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Trash } from "lucide-react";
 
 // Define an interface for the calculation history items, extending the input with the result
 interface CalculationHistoryItem extends CalculateProfitLossInput {
   result: CalculateProfitLossOutput;
+  id: string; // Unique identifier for each history item
 }
 
 // Function to format the purchase date
@@ -133,12 +135,12 @@ const InputFields = ({
 );
 
 // Functional component to display each history item
-const HistoryItem = ({ item }: { item: CalculationHistoryItem }) => {
+const HistoryItem = ({ item, onRemove }: { item: CalculationHistoryItem; onRemove: (id: string) => void }) => {
   const profitColorClass = item.result.profitLoss >= 0 ? "text-green-500" : "text-red-500";
   const profitText = item.result.profitLoss >= 0 ? "Profit" : "Loss";
 
   return (
-    <div className="mb-4">
+    <div className="mb-4 relative">
       <p>Token: {item.tokenName}</p>
       <p>Date: {item.purchaseDate}</p>
       <p>Price: {item.purchasePrice}</p>
@@ -146,25 +148,43 @@ const HistoryItem = ({ item }: { item: CalculationHistoryItem }) => {
       <p className={profitColorClass}>
         {profitText}: ${item.result.profitLoss.toFixed(2)}
       </p>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-0 right-0"
+        onClick={() => onRemove(item.id)}
+      >
+        <Trash className="h-4 w-4" />
+        <span className="sr-only">Remove</span>
+      </Button>
       <hr />
     </div>
   );
 };
 
 // Component for rendering the calculation history
-const CalculationHistory = ({ calculationHistory }: { calculationHistory: CalculationHistoryItem[] }) => (
+const CalculationHistory = ({
+  calculationHistory,
+  onRemove,
+  onClearHistory,
+}: {
+  calculationHistory: CalculationHistoryItem[];
+  onRemove: (id: string) => void;
+  onClearHistory: () => void;
+}) => (
   <div className="w-1/2 h-screen p-6">
     <Card className="h-full flex flex-col">
-      <CardHeader>
+      <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Calculation History</CardTitle>
-        <CardDescription>
-          Past calculations for reference.
-        </CardDescription>
+        <CardDescription>Past calculations for reference.</CardDescription>
+        <Button variant="destructive" size="sm" onClick={onClearHistory}>
+          Clear History
+        </Button>
       </CardHeader>
-      <CardContent className="overflow-auto h-full">
+      <CardContent className="overflow-auto h-[calc(100%-80px)]">
         <div className="p-4">
           {calculationHistory.map((item, index) => (
-            <HistoryItem key={index} item={item} />
+            <HistoryItem key={index} item={item} onRemove={onRemove} />
           ))}
         </div>
       </CardContent>
@@ -183,6 +203,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
+
+  // Function to generate a unique ID for each history item
+  const generateId = (): string => {
+    return Math.random().toString(36).substring(2, 15);
+  };
 
   // Load calculation history from local storage on component mount
   useEffect(() => {
@@ -222,13 +247,17 @@ export default function Home() {
       const result = await calculateProfitLoss(input);
       setProfitLossResult(result);
 
+      // Create a new history item with a unique ID
+      const newHistoryItem: CalculationHistoryItem = {
+        ...input,
+        result,
+        id: generateId(),
+      };
+
       // Update calculation history
       setCalculationHistory(prevHistory => [
         ...prevHistory,
-        {
-          ...input,
-          result,
-        }
+        newHistoryItem
       ]);
     } catch (error: any) {
       // Display error message
@@ -241,6 +270,19 @@ export default function Home() {
       setIsLoading(false);
     }
   }, [tokenName, purchaseDate, purchasePrice, quantity, toast]);
+
+  // Function to remove a specific item from the calculation history
+  const removeHistoryItem = (id: string) => {
+    setCalculationHistory(prevHistory => {
+      const updatedHistory = prevHistory.filter(item => item.id !== id);
+      return updatedHistory;
+    });
+  };
+
+  // Function to clear the entire calculation history
+  const clearHistory = () => {
+    setCalculationHistory([]);
+  };
 
   // Render the component
   return (
@@ -273,7 +315,11 @@ export default function Home() {
       </div>
 
       {/* Calculation History */}
-      <CalculationHistory calculationHistory={calculationHistory} />
+      <CalculationHistory
+        calculationHistory={calculationHistory}
+        onRemove={removeHistoryItem}
+        onClearHistory={clearHistory}
+      />
     </div>
   );
 }
