@@ -18,10 +18,11 @@ export async function getTokenInfo(tokenName: string): Promise<TokenInfo> {
   const resp = await fetch(
     "https://api.dex.guru/v3/tokens/search/" + tokenName,
   );
-  const tokenInventory = await resp.json();
-  const firstToken = tokenInventory[0];
+  const respJson = await resp.json();
+  const data = respJson.data
+  const firstToken = data[0];
   
   return {
-    currentPrice: firstToken.priceUsd,
+    currentPrice: firstToken.priceUSD,
   };
 }

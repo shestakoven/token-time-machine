@@ -6,10 +6,15 @@ import { calculateProfitLoss, CalculateProfitLossInput, CalculateProfitLossOutpu
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface CalculationHistoryItem extends CalculateProfitLossInput {
+  result: CalculateProfitLossOutput;
+}
 
 export default function Home() {
   const [tokenName, setTokenName] = useState("");
@@ -19,6 +24,21 @@ export default function Home() {
   const [profitLossResult, setProfitLossResult] = useState<CalculateProfitLossOutput | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
+
+  useEffect(() => {
+    // Load calculation history from local storage on component mount
+    const storedHistory = localStorage.getItem("calculationHistory");
+    if (storedHistory) {
+      setCalculationHistory(JSON.parse(storedHistory));
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save calculation history to local storage whenever it changes
+    localStorage.setItem("calculationHistory", JSON.stringify(calculationHistory));
+  }, [calculationHistory]);
+
 
   const calculateResult = async () => {
     if (!tokenName || !purchaseDate || !purchasePrice || !quantity) {
@@ -39,6 +59,15 @@ export default function Home() {
       };
       const result = await calculateProfitLoss(input);
       setProfitLossResult(result);
+
+      // Update calculation history
+      setCalculationHistory(prevHistory => [
+        ...prevHistory,
+        {
+          ...input,
+          result,
+        }
+      ]);
     } catch (error: any) {
       console.error("Error calculating profit/loss:", error);
       toast({
@@ -143,6 +172,36 @@ export default function Home() {
           )}
         </CardContent>
       </Card>
+
+      {/* Calculation History */}
+      {calculationHistory.length > 0 && (
+        <Card className="w-full max-w-md mt-4">
+          <CardHeader>
+            <CardTitle>Calculation History</CardTitle>
+            <CardDescription>
+              Past calculations for reference.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px] w-full rounded-md border">
+              <div className="p-4">
+                {calculationHistory.map((item, index) => (
+                  <div key={index} className="mb-4">
+                    <p>Token: {item.tokenName}</p>
+                    <p>Date: {item.purchaseDate}</p>
+                    <p>Price: {item.purchasePrice}</p>
+                    <p>Quantity: {item.quantity}</p>
+                    <p className={profitLossResult && profitLossResult.profitLoss >= 0 ? "text-green-500" : "text-red-500"}>
+                      {profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss"}: ${item.result.profitLoss.toFixed(2)}
+                    </p>
+                    <hr />
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
