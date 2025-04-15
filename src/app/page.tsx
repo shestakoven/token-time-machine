@@ -83,8 +83,8 @@ export default function Home() {
   const profitText = profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss";
 
   return (
-    <div className="flex justify-center items-start min-h-screen py-12 bg-background">
-      <Card className="w-full max-w-md">
+    <div className="flex justify-center items-center min-h-screen py-12 bg-background">
+      <Card className="w-full max-w-md p-6">
         <CardHeader>
           <CardTitle>Token Time Machine</CardTitle>
           <CardDescription>
