@@ -6,17 +6,175 @@ import { calculateProfitLoss, CalculateProfitLossInput, CalculateProfitLossOutpu
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+// Define an interface for the calculation history items, extending the input with the result
 interface CalculationHistoryItem extends CalculateProfitLossInput {
   result: CalculateProfitLossOutput;
 }
 
+// Function to format the purchase date
+const formatDate = (date: Date | undefined): string => {
+  return date ? format(date, "yyyy-MM-dd") : "";
+};
+
+// Function to format numbers to a fixed 2 decimal places.
+const formatNumber = (value: number | undefined): string => {
+  return value !== undefined ? value.toFixed(2) : "";
+};
+
+// Component for displaying the profit/loss result
+const ResultDisplay = ({ profitLossResult }: { profitLossResult: CalculateProfitLossOutput | undefined }) => {
+  const profitColor = profitLossResult && profitLossResult.profitLoss >= 0 ? "text-green-500" : "text-red-500";
+  const profitText = profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss";
+
+  return profitLossResult ? (
+    <div className="mt-4">
+      <p>
+        Current Price: ${profitLossResult.currentPrice.toFixed(2)}
+      </p>
+      <p className={profitColor}>
+        {profitText}: ${profitLossResult.profitLoss.toFixed(2)}
+      </p>
+    </div>
+  ) : null;
+};
+
+// Component for rendering the input fields
+const InputFields = ({
+  tokenName,
+  setTokenName,
+  purchaseDate,
+  setPurchaseDate,
+  purchasePrice,
+  setPurchasePrice,
+  quantity,
+  setQuantity,
+}: {
+  tokenName: string;
+  setTokenName: React.Dispatch<React.SetStateAction<string>>;
+  purchaseDate: Date | undefined;
+  setPurchaseDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
+  purchasePrice: number | undefined;
+  setPurchasePrice: React.Dispatch<React.SetStateAction<number | undefined>>;
+  quantity: number | undefined;
+  setQuantity: React.Dispatch<React.SetStateAction<number | undefined>>;
+}) => (
+  <>
+    <div className="grid gap-2">
+      <label htmlFor="token-name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Token Name/Symbol
+      </label>
+      <Input
+        id="token-name"
+        placeholder="e.g., BTC"
+        value={tokenName}
+        onChange={(e) => setTokenName(e.target.value)}
+      />
+    </div>
+    <div className="grid gap-2">
+      <label htmlFor="purchase-date" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Purchase Date
+      </label>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant={"outline"}
+            className={cn(
+              "w-full justify-start text-left font-normal",
+              !purchaseDate && "text-muted-foreground"
+            )}
+          >
+            {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={purchaseDate}
+            onSelect={setPurchaseDate}
+            disabled={(date) =>
+              date > new Date() || date < new Date("2009-01-03")
+            }
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+    </div>
+    <div className="grid gap-2">
+      <label htmlFor="purchase-price" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Purchase Price
+      </label>
+      <Input
+        id="purchase-price"
+        type="number"
+        placeholder="e.g., 30000"
+        value={formatNumber(purchasePrice)}
+        onChange={(e) => setPurchasePrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+      />
+    </div>
+    <div className="grid gap-2">
+      <label htmlFor="quantity" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        Quantity
+      </label>
+      <Input
+        id="quantity"
+        type="number"
+        placeholder="e.g., 1"
+        value={formatNumber(quantity)}
+        onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : undefined)}
+      />
+    </div>
+  </>
+);
+
+// Functional component to display each history item
+const HistoryItem = ({ item }: { item: CalculationHistoryItem }) => {
+  const profitColorClass = item.result.profitLoss >= 0 ? "text-green-500" : "text-red-500";
+  const profitText = item.result.profitLoss >= 0 ? "Profit" : "Loss";
+
+  return (
+    <div className="mb-4">
+      <p>Token: {item.tokenName}</p>
+      <p>Date: {item.purchaseDate}</p>
+      <p>Price: {item.purchasePrice}</p>
+      <p>Quantity: {item.quantity}</p>
+      <p className={profitColorClass}>
+        {profitText}: ${item.result.profitLoss.toFixed(2)}
+      </p>
+      <hr />
+    </div>
+  );
+};
+
+// Component for rendering the calculation history
+const CalculationHistory = ({ calculationHistory }: { calculationHistory: CalculationHistoryItem[] }) => (
+  <div className="w-1/2 h-screen p-6">
+    <Card className="h-full flex flex-col">
+      <CardHeader>
+        <CardTitle>Calculation History</CardTitle>
+        <CardDescription>
+          Past calculations for reference.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="overflow-auto h-full">
+        <div className="p-4">
+          {calculationHistory.map((item, index) => (
+            <HistoryItem key={index} item={item} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+);
+
+// Main Home component
 export default function Home() {
+  // Define state variables
   const [tokenName, setTokenName] = useState("");
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined);
   const [purchasePrice, setPurchasePrice] = useState<number | undefined>(undefined);
@@ -26,21 +184,22 @@ export default function Home() {
   const { toast } = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
 
+  // Load calculation history from local storage on component mount
   useEffect(() => {
-    // Load calculation history from local storage on component mount
     const storedHistory = localStorage.getItem("calculationHistory");
     if (storedHistory) {
       setCalculationHistory(JSON.parse(storedHistory));
     }
   }, []);
 
+  // Save calculation history to local storage whenever it changes
   useEffect(() => {
-    // Save calculation history to local storage whenever it changes
     localStorage.setItem("calculationHistory", JSON.stringify(calculationHistory));
   }, [calculationHistory]);
 
-
-  const calculateResult = async () => {
+  // useCallback hook to memoize the calculateResult function
+  const calculateResult = useCallback(async () => {
+    // Validate input fields
     if (!tokenName || !purchaseDate || !purchasePrice || !quantity) {
       toast({
         title: "Error",
@@ -51,12 +210,15 @@ export default function Home() {
 
     setIsLoading(true);
     try {
+      // Prepare input for the calculateProfitLoss function
       const input: CalculateProfitLossInput = {
         tokenName,
-        purchaseDate: format(purchaseDate, "yyyy-MM-dd"),
+        purchaseDate: formatDate(purchaseDate),
         purchasePrice,
         quantity,
       };
+
+      // Call the calculateProfitLoss function
       const result = await calculateProfitLoss(input);
       setProfitLossResult(result);
 
@@ -69,6 +231,7 @@ export default function Home() {
         }
       ]);
     } catch (error: any) {
+      // Display error message
       console.error("Error calculating profit/loss:", error);
       toast({
         title: "Error",
@@ -77,11 +240,9 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [tokenName, purchaseDate, purchasePrice, quantity, toast]);
 
-  const profitColor = profitLossResult && profitLossResult.profitLoss >= 0 ? "text-green-500" : "text-red-500";
-  const profitText = profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss";
-
+  // Render the component
   return (
     <div className="flex h-screen bg-background">
       <div className="flex flex-col justify-center items-center p-6 w-1/2">
@@ -93,117 +254,26 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <div className="grid gap-2">
-              <label htmlFor="token-name" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Token Name/Symbol
-              </label>
-              <Input
-                id="token-name"
-                placeholder="e.g., BTC"
-                value={tokenName}
-                onChange={(e) => setTokenName(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="purchase-date" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Purchase Date
-              </label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !purchaseDate && "text-muted-foreground"
-                    )}
-                  >
-                    {purchaseDate ? format(purchaseDate, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={purchaseDate}
-                    onSelect={setPurchaseDate}
-                    disabled={(date) =>
-                      date > new Date() || date < new Date("2009-01-03")
-                    }
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="purchase-price" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Purchase Price
-              </label>
-              <Input
-                id="purchase-price"
-                type="number"
-                placeholder="e.g., 30000"
-                value={purchasePrice === undefined ? "" : purchasePrice.toString()}
-                onChange={(e) => setPurchasePrice(e.target.value ? parseFloat(e.target.value) : undefined)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="quantity" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Quantity
-              </label>
-              <Input
-                id="quantity"
-                type="number"
-                placeholder="e.g., 1"
-                value={quantity === undefined ? "" : quantity.toString()}
-                onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : undefined)}
-              />
-            </div>
+            <InputFields
+              tokenName={tokenName}
+              setTokenName={setTokenName}
+              purchaseDate={purchaseDate}
+              setPurchaseDate={setPurchaseDate}
+              purchasePrice={purchasePrice}
+              setPurchasePrice={setPurchasePrice}
+              quantity={quantity}
+              setQuantity={setQuantity}
+            />
             <Button onClick={calculateResult} disabled={isLoading}>
               {isLoading ? "Calculating..." : "Calculate"}
             </Button>
-
-            {profitLossResult && (
-              <div className="mt-4">
-                <p>
-                  Current Price: ${profitLossResult.currentPrice.toFixed(2)}
-                </p>
-                <p className={profitColor}>
-                  {profitText}: ${profitLossResult.profitLoss.toFixed(2)}
-                </p>
-              </div>
-            )}
+            <ResultDisplay profitLossResult={profitLossResult} />
           </CardContent>
         </Card>
       </div>
 
       {/* Calculation History */}
-      <div className="w-1/2 h-screen p-6 overflow-y-auto">
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle>Calculation History</CardTitle>
-            <CardDescription>
-              Past calculations for reference.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="h-full">
-            <ScrollArea className="h-[calc(100vh-200px)] w-full rounded-md border">
-              <div className="p-4">
-                {calculationHistory.map((item, index) => (
-                  <div key={index} className="mb-4">
-                    <p>Token: {item.tokenName}</p>
-                    <p>Date: {item.purchaseDate}</p>
-                    <p>Price: {item.purchasePrice}</p>
-                    <p>Quantity: {item.quantity}</p>
-                    <p className={item.result && item.result.profitLoss >= 0 ? "text-green-500" : "text-red-500"}>
-                      {item.result && item.result.profitLoss >= 0 ? "Profit" : "Loss"}: ${item.result.profitLoss.toFixed(2)}
-                    </p>
-                    <hr />
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
+      <CalculationHistory calculationHistory={calculationHistory} />
     </div>
   );
 }
