@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Trash } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 // Define an interface for the calculation history items, extending the input with the result
 interface CalculationHistoryItem extends CalculateProfitLossInput {
@@ -165,7 +166,7 @@ const HistoryItem = ({ item, onRemove }: { item: CalculationHistoryItem; onRemov
           className="absolute top-2 right-2"
           onClick={() => onRemove(item.id)}
         >
-          <Trash className="h-4 w-4" />
+          <Trash2 className="h-4 w-4" />
           <span className="sr-only">Remove</span>
         </Button>
       </CardContent>
@@ -304,9 +305,7 @@ export default function Home() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Token Time Machine</CardTitle>
-            <CardDescription>
-              Enter the token details to calculate potential profit/loss.
-            </CardDescription>
+            <CardDescription>Enter the token details to calculate potential profit/loss.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <InputFields
