@@ -193,8 +193,8 @@ export default function Home() {
                     <p>Date: {item.purchaseDate}</p>
                     <p>Price: {item.purchasePrice}</p>
                     <p>Quantity: {item.quantity}</p>
-                    <p className={profitLossResult && profitLossResult.profitLoss >= 0 ? "text-green-500" : "text-red-500"}>
-                      {profitLossResult && profitLossResult.profitLoss >= 0 ? "Profit" : "Loss"}: ${item.result.profitLoss.toFixed(2)}
+                    <p className={item.result && item.result.profitLoss >= 0 ? "text-green-500" : "text-red-500"}>
+                      {item.result && item.result.profitLoss >= 0 ? "Profit" : "Loss"}: ${item.result.profitLoss.toFixed(2)}
                     </p>
                     <hr />
                   </div>
