@@ -150,25 +150,26 @@ const HistoryItem = ({ item, onRemove }: { item: CalculationHistoryItem; onRemov
   const profitText = item.result.profitLoss >= 0 ? "Profit" : "Loss";
 
   return (
-    <div className="mb-4 relative">
-      <p>Token: {item.tokenName}</p>
-      <p>Date: {item.purchaseDate}</p>
-      <p>Price: {item.purchasePrice}</p>
-      <p>Quantity: {item.quantity}</p>
-      <p className={profitColorClass}>
-        {profitText}: ${item.result.profitLoss.toFixed(2)}
-      </p>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-0 right-0"
-        onClick={() => onRemove(item.id)}
-      >
-        <Trash className="h-4 w-4" />
-        <span className="sr-only">Remove</span>
-      </Button>
-      <hr />
-    </div>
+    <Card className="mb-4 relative">
+      <CardContent>
+        <p className="font-semibold">Token: {item.tokenName}</p>
+        <p>Date: {item.purchaseDate}</p>
+        <p>Price: {item.purchasePrice}</p>
+        <p>Quantity: {item.quantity}</p>
+        <p className={profitColorClass}>
+          {profitText}: ${item.result.profitLoss.toFixed(2)}
+        </p>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-2 right-2"
+          onClick={() => onRemove(item.id)}
+        >
+          <Trash className="h-4 w-4" />
+          <span className="sr-only">Remove</span>
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -191,7 +192,7 @@ const CalculationHistory = ({
           Clear History
         </Button>
       </CardHeader>
-      <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
+      <CardContent className="overflow-y-auto">
         <div className="p-4">
           {calculationHistory.map((item, index) => (
             <HistoryItem key={index} item={item} onRemove={onRemove} />
