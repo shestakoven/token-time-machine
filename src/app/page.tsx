@@ -115,8 +115,13 @@ const InputFields = ({
         id="purchase-price"
         type="number"
         placeholder="e.g., 30000"
-        value={formatNumber(purchasePrice)}
-        onChange={(e) => setPurchasePrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+        value={purchasePrice !== undefined ? purchasePrice.toString() : ""}
+        onChange={(e) => {
+          const parsedValue = e.target.value ? parseFloat(e.target.value) : undefined;
+          if ((parsedValue === undefined || !isNaN(parsedValue)) && (e.target.value === "" || (parsedValue !== undefined && isFinite(parsedValue)))) {
+              setPurchasePrice(parsedValue);
+          }
+      }}
       />
     </div>
     <div className="grid gap-2">
@@ -127,8 +132,13 @@ const InputFields = ({
         id="quantity"
         type="number"
         placeholder="e.g., 1"
-        value={formatNumber(quantity)}
-        onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : undefined)}
+        value={quantity !== undefined ? quantity.toString() : ""}
+        onChange={(e) => {
+          const parsedValue = e.target.value ? parseFloat(e.target.value) : undefined;
+          if ((parsedValue === undefined || !isNaN(parsedValue)) && (e.target.value === "" || (parsedValue !== undefined && isFinite(parsedValue)))) {
+              setQuantity(parsedValue);
+          }
+      }}
       />
     </div>
   </>
@@ -181,14 +191,12 @@ const CalculationHistory = ({
           Clear History
         </Button>
       </CardHeader>
-      <CardContent className="h-[calc(100%-80px)]">
-        <ScrollArea className="h-full">
-          <div className="p-4">
-            {calculationHistory.map((item, index) => (
-              <HistoryItem key={index} item={item} onRemove={onRemove} />
-            ))}
-          </div>
-        </ScrollArea>
+      <CardContent className="h-[calc(100%-80px)] overflow-y-auto">
+        <div className="p-4">
+          {calculationHistory.map((item, index) => (
+            <HistoryItem key={index} item={item} onRemove={onRemove} />
+          ))}
+        </div>
       </CardContent>
     </Card>
   </div>
@@ -227,7 +235,7 @@ export default function Home() {
   // useCallback hook to memoize the calculateResult function
   const calculateResult = useCallback(async () => {
     // Validate input fields
-    if (!tokenName || !purchaseDate || !purchasePrice || !quantity) {
+    if (!tokenName || !purchaseDate || purchasePrice === undefined || quantity === undefined) {
       toast({
         title: "Error",
         description: "Please fill in all fields.",
@@ -277,6 +285,7 @@ export default function Home() {
   const removeHistoryItem = (id: string) => {
     setCalculationHistory(prevHistory => {
       const updatedHistory = prevHistory.filter(item => item.id !== id);
+      localStorage.setItem("calculationHistory", JSON.stringify(updatedHistory));
       return updatedHistory;
     });
   };
