@@ -38,10 +38,10 @@ const ResultDisplay = ({ profitLossResult }: { profitLossResult: CalculateProfit
   return profitLossResult ? (
     <div className="mt-4">
       <p>
-        Current Price: ${profitLossResult.currentPrice.toFixed(2)}
+        Current Price: ${profitLossResult.currentPrice.toFixed(5)}
       </p>
       <p className={profitColor}>
-        {profitText}: ${profitLossResult.profitLoss.toFixed(2)}
+        {profitText}: ${profitLossResult.profitLoss.toFixed(5)}
       </p>
     </div>
   ) : null;
@@ -158,7 +158,7 @@ const HistoryItem = ({ item, onRemove }: { item: CalculationHistoryItem; onRemov
         <p>Price: {item.purchasePrice}</p>
         <p>Quantity: {item.quantity}</p>
         <p className={profitColorClass}>
-          {profitText}: ${item.result.profitLoss.toFixed(2)}
+          {profitText}: ${item.result.profitLoss.toFixed(5)}
         </p>
         <Button
           variant="ghost"
@@ -184,7 +184,7 @@ const CalculationHistory = ({
   onRemove: (id: string) => void;
   onClearHistory: () => void;
 }) => (
-  <div className="w-1/2 h-screen p-6">
+  <div className="h-full p-6">
     <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-row justify-between items-center">
         <CardTitle>Calculation History</CardTitle>
@@ -300,8 +300,9 @@ export default function Home() {
 
   // Render the component
   return (
-    <div className="flex h-screen bg-background">
-      <div className="flex flex-col justify-center items-center p-6 w-1/2">
+    <div className="grid h-screen w-full grid-cols-1 md:grid-cols-2">
+      {/* Calculation Input Section */}
+      <div className="flex flex-col items-center justify-center p-6">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Token Time Machine</CardTitle>
@@ -319,19 +320,21 @@ export default function Home() {
               setQuantity={setQuantity}
             />
             <Button onClick={calculateResult} disabled={isLoading}>
-              {isLoading ? "Calculating..." : "Calculate"}
+              {isLoading ? "Calculate" : "Calculate"}
             </Button>
             <ResultDisplay profitLossResult={profitLossResult} />
           </CardContent>
         </Card>
       </div>
 
-      {/* Calculation History */}
-      <CalculationHistory
-        calculationHistory={calculationHistory}
-        onRemove={removeHistoryItem}
-        onClearHistory={clearHistory}
-      />
+      {/* Calculation History Section */}
+      <div className="flex flex-col">
+        <CalculationHistory
+          calculationHistory={calculationHistory}
+          onRemove={removeHistoryItem}
+          onClearHistory={clearHistory}
+        />
+      </div>
     </div>
   );
 }
