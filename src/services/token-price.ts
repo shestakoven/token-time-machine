@@ -15,9 +15,13 @@ export interface TokenInfo {
  * @returns A promise that resolves to a TokenInfo object containing the current price.
  */
 export async function getTokenInfo(tokenName: string): Promise<TokenInfo> {
-  // TODO: Implement this by calling an API.
-
+  const resp = await fetch(
+    "https://api.dex.guru/v3/tokens/search/" + tokenName,
+  );
+  const tokenInventory = await resp.json();
+  const firstToken = tokenInventory[0];
+  
   return {
-    currentPrice: 150.00,
+    currentPrice: firstToken.priceUsd,
   };
 }
