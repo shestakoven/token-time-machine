@@ -181,12 +181,14 @@ const CalculationHistory = ({
           Clear History
         </Button>
       </CardHeader>
-      <CardContent className="overflow-auto h-[calc(100%-80px)]">
-        <div className="p-4">
-          {calculationHistory.map((item, index) => (
-            <HistoryItem key={index} item={item} onRemove={onRemove} />
-          ))}
-        </div>
+      <CardContent className="h-[calc(100%-80px)]">
+        <ScrollArea className="h-full">
+          <div className="p-4">
+            {calculationHistory.map((item, index) => (
+              <HistoryItem key={index} item={item} onRemove={onRemove} />
+            ))}
+          </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   </div>
@@ -281,6 +283,7 @@ export default function Home() {
 
   // Function to clear the entire calculation history
   const clearHistory = () => {
+    localStorage.removeItem("calculationHistory");
     setCalculationHistory([]);
   };
 
