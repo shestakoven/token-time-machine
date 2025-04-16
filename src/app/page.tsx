@@ -21,8 +21,9 @@ import {useToast} from '@/hooks/use-toast';
 import {format} from 'date-fns';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {ScrollArea} from '@/components/ui/scroll-area';
-import {Trash2} from 'lucide-react';
+import {Trash2, RefreshCw} from 'lucide-react';
 import {Separator} from '@/components/ui/separator';
+import {getTokenInfo} from '@/services/token-price';
 
 // Define an interface for the calculation history items, extending the input with the result
 interface CalculationHistoryItem extends CalculateProfitLossInput {
@@ -181,9 +182,11 @@ const InputFields = ({
 const HistoryItem = ({
   item,
   onRemove,
+  onRefresh,
 }: {
   item: CalculationHistoryItem;
   onRemove: (id: string) => void;
+  onRefresh: (item: CalculationHistoryItem) => void; // Add onRefresh prop
 }) => {
   const profitColorClass = item.result.profitLoss >= 0 ? 'text-green-500' : 'text-red-500';
   const profitText = item.result.profitLoss >= 0 ? 'Profit' : 'Loss';
@@ -196,14 +199,24 @@ const HistoryItem = ({
             <p className="font-semibold text-lg">{item.tokenName}</p>
             <p className="text-sm text-muted-foreground">Date: {item.purchaseDate}</p>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full"
-            onClick={() => onRemove(item.id)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              onClick={() => onRefresh(item)} // Call onRefresh with item
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              onClick={() => onRemove(item.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <Separator className="my-2" />
         <div className="grid grid-cols-2 gap-2">
@@ -234,10 +247,12 @@ const CalculationHistory = ({
   calculationHistory,
   onRemove,
   onClearHistory,
+  onRefresh,
 }: {
   calculationHistory: CalculationHistoryItem[];
   onRemove: (id: string) => void;
   onClearHistory: () => void;
+  onRefresh: (item: CalculationHistoryItem) => void;
 }) => (
   <div className="h-full p-6">
     <Card className="h-full flex flex-col border-none">
@@ -252,7 +267,7 @@ const CalculationHistory = ({
       <CardContent className="overflow-y-auto p-0">
         <div className="p-4">
           {calculationHistory.map((item, index) => (
-            <HistoryItem key={index} item={item} onRemove={onRemove} />
+            <HistoryItem key={index} item={item} onRemove={onRemove} onRefresh={onRefresh} />
           ))}
         </div>
       </CardContent>
@@ -353,6 +368,38 @@ export default function Home() {
     setCalculationHistory([]);
   };
 
+  // Function to refresh a specific item in the calculation history
+  const refreshHistoryItem = async (item: CalculationHistoryItem) => {
+    setIsLoading(true);
+    try {
+      // Fetch current price
+      const tokenInfo = await getTokenInfo(item.tokenName);
+      const currentPrice = tokenInfo.currentPrice;
+
+      // Recalculate profit/loss
+      const profitLoss = (currentPrice - item.purchasePrice) * item.quantity;
+      const updatedResult: CalculateProfitLossOutput = {
+        currentPrice: currentPrice,
+        profitLoss: profitLoss,
+      };
+
+      // Update the item in history
+      setCalculationHistory(prevHistory =>
+        prevHistory.map(hItem =>
+          hItem.id === item.id ? {...hItem, result: updatedResult} : hItem
+        )
+      );
+    } catch (error: any) {
+      console.error('Error refreshing profit/loss:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to refresh profit/loss.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Render the component
   return (
     <div className="flex h-screen bg-background">
@@ -389,6 +436,7 @@ export default function Home() {
           calculationHistory={calculationHistory}
           onRemove={removeHistoryItem}
           onClearHistory={clearHistory}
+          onRefresh={refreshHistoryItem}
         />
       </div>
     </div>
