@@ -14,11 +14,11 @@ export interface TokenInfo {
   /**
    * The full name of the token (e.g., Bitcoin, Ethereum).
    */
-  name: string;
+  name: string; // Full name from API
   /**
-   * The symbol of the token (e.g., BTC, ETH).
+   * The ticker symbol of the token (e.g., BTC, ETH).
    */
-  symbol: string;
+  symbol: string; // Ticker symbol from API (e.g. BTC)
 }
 
 /**
@@ -43,19 +43,21 @@ export async function getTokenInfo(tokenName: string): Promise<TokenInfo> {
   const firstToken = data[0];
 
   if (
-    typeof firstToken.priceUSD !== 'number' || 
-    !firstToken.id || 
+    typeof firstToken.priceUSD !== 'number' ||
+    !firstToken.id ||
     typeof firstToken.name !== 'string' ||
-    typeof firstToken.symbol !== 'string'
+    !Array.isArray(firstToken.symbols) ||
+    firstToken.symbols.length === 0 ||
+    typeof firstToken.symbols[0] !== 'string'
   ) {
-    throw new Error(`Invalid data structure for token ${tokenName} from DexGuru search API.`)
+    throw new Error(`Invalid data structure for token ${tokenName} from DexGuru search API. Expected 'priceUSD' (number), 'id' (string), 'name' (string), and 'symbols' (non-empty array of strings).`)
   }
 
   return {
     currentPrice: firstToken.priceUSD,
-    id: firstToken.id, 
+    id: firstToken.id,
     name: firstToken.name,
-    symbol: firstToken.symbol,
+    symbol: firstToken.symbols[0], // Use the first symbol from the array
   };
 }
 
@@ -75,18 +77,18 @@ export interface HistoricalTokenPriceInfo {
  */
 export async function getHistoricalTokenPrice(
   tokenId: string,
-  tokenNameForError: string, // Changed parameter name for clarity
+  tokenNameForError: string,
   date: string
 ): Promise<HistoricalTokenPriceInfo> {
   const currentDate = new Date();
-  currentDate.setUTCHours(0, 0, 0, 0); // Set to start of today UTC for comparison
-  const requestedDate = new Date(date + "T00:00:00.000Z"); // Ensure UTC interpretation
+  currentDate.setUTCHours(0, 0, 0, 0); 
+  const requestedDate = new Date(date + "T00:00:00.000Z"); 
 
   if (requestedDate > currentDate) {
     throw new Error(`Cannot fetch historical price for a future date (${date}) for ${tokenNameForError}. Please select a past or current date.`);
   }
 
-  const symbol = `${tokenId}_USD`; // Construct symbol like "0xaddress-chain_USD"
+  const symbol = `${tokenId}_USD`; 
 
   const purchaseDateStart = new Date(`${date}T00:00:00.000Z`);
   const purchaseDateEnd = new Date(`${date}T23:59:59.999Z`);
@@ -94,7 +96,7 @@ export async function getHistoricalTokenPrice(
   const fromTimestamp = Math.floor(purchaseDateStart.getTime() / 1000);
   const toTimestamp = Math.floor(purchaseDateEnd.getTime() / 1000);
 
-  const resolution = '1D'; 
+  const resolution = '1D';
   const historyUrl = `https://api.dex.guru/v1/tradingview/history?symbol=${symbol}&resolution=${resolution}&from=${fromTimestamp}&to=${toTimestamp}&countback=1`;
   
   console.log(`Fetching historical price from: ${historyUrl}`);
@@ -110,15 +112,18 @@ export async function getHistoricalTokenPrice(
   let priceToUse: number | undefined = undefined;
 
   if (historyData.s === 'ok' && historyData.c && historyData.c.length > 0) {
-    priceToUse = historyData.c[0]; 
+    priceToUse = historyData.c[0];
     console.log(`Using historical price from ${date}: ${priceToUse} for ${tokenNameForError}`);
   } else if (historyData.s === 'no_data' || (historyData.c && historyData.c.length === 0)) {
     const prevDate = new Date(purchaseDateStart);
     prevDate.setDate(prevDate.getDate() - 1);
     const prevDateString = prevDate.toISOString().split('T')[0];
 
-    if (prevDate > new Date(new Date().toISOString().split('T')[0] + "T00:00:00.000Z")) { 
-      throw new Error(`No historical data found for ${tokenNameForError} on ${date}. Attempted to check ${prevDateString}, which is in the future.`);
+    // Check if prevDate is still in the future compared to today's date (start of day UTC)
+    const todayStartOfDay = new Date();
+    todayStartOfDay.setUTCHours(0,0,0,0);
+    if (prevDate > todayStartOfDay) {
+      throw new Error(`No historical data found for ${tokenNameForError} on ${date}. Attempted to check ${prevDateString}, which is still in the future or today with no data yet.`);
     }
 
     const prevFromTimestamp = Math.floor(prevDate.getTime() / 1000);
@@ -151,7 +156,7 @@ export async function getHistoricalTokenPrice(
   if (typeof priceToUse !== 'number') {
      throw new Error(`Fetched historical price for ${tokenNameForError} on ${date} is not a number (got ${priceToUse}).`);
   }
-  if (priceToUse < 0) {
+  if (priceToUse < 0) { // Technically shouldn't happen with prices but a good check
       throw new Error(`Fetched historical price for ${tokenNameForError} on ${date} is negative (${priceToUse}). This is invalid.`);
   }
   if (priceToUse === 0) {
@@ -163,3 +168,4 @@ export async function getHistoricalTokenPrice(
 
   return {priceUSD: priceToUse};
 }
+
