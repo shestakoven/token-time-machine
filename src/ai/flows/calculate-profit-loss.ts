@@ -8,19 +8,20 @@
  * - CalculateProfitLossOutput - The return type for the calculateProfitLoss function.
  */
 
-import {ai} from '@/ai/ai-instance'; // ai instance is kept for consistency, though not directly used for a prompt here.
+import {ai} from '@/ai/ai-instance'; 
 import {z} from 'genkit';
 import {getTokenInfo, getHistoricalTokenPrice} from '@/services/token-price';
 
 const CalculateProfitLossInputSchema = z.object({
-  tokenName: z.string().describe('The name or symbol of the token.'),
+  tokenName: z.string().describe('The name or symbol of the token (user input).'),
   purchaseDate: z.string().describe('The date when the token was purchased (YYYY-MM-DD).'),
   purchaseAmountUSD: z.number().describe('The total amount in USD invested in the token on the purchase date.'),
 });
 export type CalculateProfitLossInput = z.infer<typeof CalculateProfitLossInputSchema>;
 
 const CalculateProfitLossOutputSchema = z.object({
-  tokenSymbol: z.string().describe('The symbol of the token (e.g., BTC, ETH).'),
+  apiTokenName: z.string().describe('The official name of the token from the API (e.g., Bitcoin, Ethereum).'),
+  apiTokenSymbol: z.string().describe('The symbol of the token from the API (e.g., BTC, ETH).'),
   priceAtPurchase: z.number().describe('The price of the token per unit at the time of purchase.'),
   quantityPurchased: z.number().describe('The amount of tokens purchased.'),
   currentPrice: z.number().describe('The current price of the token per unit.'),
@@ -40,21 +41,18 @@ const calculateProfitLossFlow = ai.defineFlow(
     outputSchema: CalculateProfitLossOutputSchema,
   },
   async (input: CalculateProfitLossInput): Promise<CalculateProfitLossOutput> => {
-    const { tokenName, purchaseDate, purchaseAmountUSD } = input;
+    const { tokenName: userInputTokenName, purchaseDate, purchaseAmountUSD } = input;
 
-    // 1. Fetch current token info (price, ID, and symbol)
-    const tokenInfo = await getTokenInfo(tokenName);
+    // 1. Fetch current token info (price, ID, name, and symbol)
+    const tokenInfo = await getTokenInfo(userInputTokenName);
     const currentPrice = tokenInfo.currentPrice;
-    const tokenId = tokenInfo.id; // ID like "0xaddress-chain"
-    const tokenSymbol = tokenInfo.symbol;
+    const tokenId = tokenInfo.id; 
+    const apiTokenName = tokenInfo.name;
+    const apiTokenSymbol = tokenInfo.symbol;
 
     // 2. Fetch historical price of the token on the purchaseDate using its ID
-    // Pass tokenName for better error messages if needed
-    const historicalPriceInfo = await getHistoricalTokenPrice(tokenId, tokenName, purchaseDate);
+    const historicalPriceInfo = await getHistoricalTokenPrice(tokenId, apiTokenName, purchaseDate); // Pass apiTokenName for better error messages
     const priceAtPurchase = historicalPriceInfo.priceUSD;
-
-    // priceAtPurchase will be > 0 due to checks in getHistoricalTokenPrice
-    // If it were <=0, getHistoricalTokenPrice would have thrown an error.
 
     // 3. Calculate the quantity of tokens purchased
     const quantityPurchased = purchaseAmountUSD / priceAtPurchase;
@@ -66,7 +64,8 @@ const calculateProfitLossFlow = ai.defineFlow(
     const profitLoss = currentValue - purchaseAmountUSD;
 
     return {
-      tokenSymbol,
+      apiTokenName,
+      apiTokenSymbol,
       priceAtPurchase,
       quantityPurchased,
       currentPrice,
@@ -75,4 +74,3 @@ const calculateProfitLossFlow = ai.defineFlow(
     };
   }
 );
-
