@@ -396,21 +396,23 @@ export default function Home() {
 
   const generateId = (): string => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
+  // Load history from localStorage on client mount
   useEffect(() => {
     if (isClient) {
       const storedHistory = localStorage.getItem('calculationHistory_v4'); 
       if (storedHistory) {
         try {
           const parsedHistory = JSON.parse(storedHistory) as CalculationHistoryItem[];
+          // Basic validation of stored data structure
           if (Array.isArray(parsedHistory) && parsedHistory.every(item => 
-              item.hasOwnProperty('tokenName') && // user input
-              item.hasOwnProperty('apiTokenName') && // from API
-              item.hasOwnProperty('apiTokenSymbol') && // from API
+              item.hasOwnProperty('tokenName') && 
+              item.hasOwnProperty('apiTokenName') && 
+              item.hasOwnProperty('apiTokenSymbol') &&
               item.hasOwnProperty('purchaseDate') &&
               item.hasOwnProperty('purchaseAmountUSD') &&
               item.hasOwnProperty('result') &&
-              item.result.hasOwnProperty('apiTokenName') && // from API, in result
-              item.result.hasOwnProperty('apiTokenSymbol') && // from API, in result
+              item.result.hasOwnProperty('apiTokenName') &&
+              item.result.hasOwnProperty('apiTokenSymbol') &&
               item.hasOwnProperty('id')
           )) {
             setCalculationHistory(parsedHistory);
@@ -420,12 +422,13 @@ export default function Home() {
           }
         } catch (e) {
           console.error("Error parsing stored history for v4:", e);
-          localStorage.removeItem('calculationHistory_v4'); 
+          localStorage.removeItem('calculationHistory_v4'); // Clear corrupted data
         }
       }
     }
   }, [isClient]);
 
+  // Save history to localStorage whenever it changes
   useEffect(() => {
     if (isClient) {
       localStorage.setItem('calculationHistory_v4', JSON.stringify(calculationHistory));
@@ -466,14 +469,14 @@ export default function Home() {
 
       const newHistoryItem: CalculationHistoryItem = {
         tokenName: input.tokenName, 
-        apiTokenName: result.apiTokenName,
-        apiTokenSymbol: result.apiTokenSymbol,
+        apiTokenName: result.apiTokenName, // Store API provided name
+        apiTokenSymbol: result.apiTokenSymbol, // Store API provided symbol
         purchaseDate: input.purchaseDate, 
         purchaseAmountUSD: input.purchaseAmountUSD,
         result,
         id: generateId(),
       };
-      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]); 
+      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]); // Keep last 20 items
 
       toast({
         variant: 'default',
@@ -491,7 +494,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [tokenName, purchaseDate, purchaseAmountUSD, toast]); 
+  }, [tokenName, purchaseDate, purchaseAmountUSD, toast]); // Removed calculationHistory from deps to avoid loop with localStorage
 
   const removeHistoryItem = (id: string) => {
     setCalculationHistory(prevHistory => prevHistory.filter(item => item.id !== id));
@@ -504,22 +507,23 @@ export default function Home() {
   };
 
   const refreshHistoryItem = async (item: CalculationHistoryItem) => {
-    toast({ title: `Refreshing ${item.apiTokenSymbol}...`, description: 'Fetching latest price data.' });
+    toast({ title: `Refreshing ${item.apiTokenSymbol || item.tokenName}...`, description: 'Fetching latest price data.' });
     setIsLoading(true); 
     try {
-      // Use item.tokenName (user's original search query) for consistent refresh lookup
+      // Use item.tokenName (user's original search query) for consistent refresh lookup, 
+      // as API might return a slightly different name/symbol than what was stored from initial calc.
       const currentTokenInfo = await getTokenInfo(item.tokenName); 
       const newCurrentPrice = currentTokenInfo.currentPrice;
-      const refreshedApiTokenName = currentTokenInfo.name;
-      const refreshedApiTokenSymbol = currentTokenInfo.symbol;
+      const refreshedApiTokenName = currentTokenInfo.name; // Get latest name from API
+      const refreshedApiTokenSymbol = currentTokenInfo.symbol; // Get latest symbol from API
 
       const newCurrentValue = item.result.quantityPurchased * newCurrentPrice;
       const newProfitLoss = newCurrentValue - item.purchaseAmountUSD;
 
       const updatedResult: CalculateProfitLossOutput = {
         ...item.result, 
-        apiTokenName: refreshedApiTokenName, 
-        apiTokenSymbol: refreshedApiTokenSymbol,
+        apiTokenName: refreshedApiTokenName, // Update with fresh API name
+        apiTokenSymbol: refreshedApiTokenSymbol, // Update with fresh API symbol
         currentPrice: newCurrentPrice,
         currentValue: newCurrentValue,
         profitLoss: newProfitLoss,
@@ -552,6 +556,7 @@ export default function Home() {
   };
   
   const handleSellItem = (item: CalculationHistoryItem, targetProfit: number) => {
+    // This is a placeholder for a real sell action
     console.log(`Simulated sell order for ${item.apiTokenSymbol} if profit reaches $${targetProfit}`);
     toast({
       variant: 'default',
@@ -570,6 +575,7 @@ export default function Home() {
     });
   };
 
+  // Loading skeleton for initial render before client-side hydration
   if (!isClient) {
     return (
         <div className="flex flex-col md:flex-row h-screen max-h-screen overflow-hidden bg-muted/20 text-foreground">
@@ -657,3 +663,4 @@ export default function Home() {
     </div>
   );
 }
+
