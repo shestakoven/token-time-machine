@@ -21,104 +21,109 @@ import {useState, useEffect, useCallback} from 'react';
 import {useToast} from '@/hooks/use-toast';
 import {format} from 'date-fns';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {Trash2, RefreshCw, DollarSign, Send, XCircle } from 'lucide-react';
+import {Trash2, RefreshCw, DollarSign, Send, XCircle, Briefcase, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import {Separator} from '@/components/ui/separator';
 import {getTokenInfo} from '@/services/token-price';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-// Define an interface for the calculation history items, extending the input with the result
-interface CalculationHistoryItem extends CalculateProfitLossInput {
+
+interface CalculationHistoryItem {
+  tokenName: string;
+  purchaseDate: string; // YYYY-MM-DD
+  purchaseAmountUSD: number;
   result: CalculateProfitLossOutput;
   id: string; // Unique identifier for each history item
 }
 
-// Function to format the purchase date
 const formatDate = (date: Date | undefined): string => {
   return date ? format(date, 'yyyy-MM-dd') : '';
 };
 
-// Function to format numbers to a fixed 5 decimal places.
-const formatNumber = (value: number | undefined): string => {
+const formatNumber = (value: number | undefined, precision = 5): string => {
   if (value === undefined || value === null) return '0.00000';
-  // Check if the number is very small and needs scientific notation for precision
-  if (Math.abs(value) < 0.00001 && value !== 0) {
-    return value.toExponential(4); // Use 4 decimal places in scientific notation
+  if (Math.abs(value) < 0.00001 && value !== 0 && precision >= 5) {
+    return value.toExponential(4);
   }
-  return value.toFixed(5);
+  return value.toFixed(precision);
 };
 
-
-// Component for displaying the profit/loss result
 const ResultDisplay = ({
-  profitLossResult,
+  result,
 }: {
-  profitLossResult: CalculateProfitLossOutput | undefined;
+  result: CalculateProfitLossOutput | undefined;
 }) => {
-  if (!profitLossResult) return null;
-  const isProfit = profitLossResult.profitLoss >= 0;
-  const profitColor = isProfit ? 'text-green-500' : 'text-red-500';
-  const profitText = isProfit ? 'Profit' : 'Loss';
+  if (!result) return null;
+  const isProfit = result.profitLoss >= 0;
+  const profitLossColor = isProfit ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400';
+  const profitLossText = isProfit ? 'Profit' : 'Loss';
 
   return (
-    <div className="mt-4 p-4 bg-muted dark:bg-muted/50 rounded-lg">
-      <p className="text-sm text-muted-foreground">Current Price:</p>
-      <p className="text-lg font-semibold">${formatNumber(profitLossResult.currentPrice)}</p>
-      <p className={`text-sm mt-2 ${profitColor}`}>{profitText}:</p>
-      <p className={`text-lg font-semibold ${profitColor}`}>
-        ${formatNumber(profitLossResult.profitLoss)}
-      </p>
+    <div className="mt-4 p-4 bg-muted/80 dark:bg-muted/50 rounded-lg space-y-3 shadow-inner">
+      <div className="text-sm text-muted-foreground dark:text-gray-400">Calculation Results:</div>
+      
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <div>
+          <p className="text-xs text-muted-foreground dark:text-gray-400">Price at Purchase:</p>
+          <p className="font-semibold text-foreground dark:text-gray-200">${formatNumber(result.priceAtPurchase)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground dark:text-gray-400">Quantity Purchased:</p>
+          <p className="font-semibold text-foreground dark:text-gray-200">{formatNumber(result.quantityPurchased, 8)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground dark:text-gray-400">Current Price:</p>
+          <p className="font-semibold text-foreground dark:text-gray-200">${formatNumber(result.currentPrice)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground dark:text-gray-400">Current Value:</p>
+          <p className="font-semibold text-foreground dark:text-gray-200">${formatNumber(result.currentValue, 2)}</p>
+        </div>
+      </div>
+       <Separator className="my-2 bg-border/70 dark:bg-gray-700/70" />
+      <div>
+        <p className={`text-sm font-medium ${profitLossColor}`}>{profitLossText}:</p>
+        <p className={`text-2xl font-bold ${profitLossColor}`}>
+          ${formatNumber(result.profitLoss, 2)}
+        </p>
+      </div>
     </div>
   );
 };
 
-// Component for rendering the input fields
 const InputFields = ({
   tokenName,
   setTokenName,
   purchaseDate,
   setPurchaseDate,
-  purchasePrice,
-  setPurchasePrice,
-  quantity,
-  setQuantity,
+  purchaseAmountUSD,
+  setPurchaseAmountUSD,
 }: {
   tokenName: string;
   setTokenName: React.Dispatch<React.SetStateAction<string>>;
   purchaseDate: Date | undefined;
   setPurchaseDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
-  purchasePrice: string;
-  setPurchasePrice: React.Dispatch<React.SetStateAction<string>>;
-  quantity: string;
-  setQuantity: React.Dispatch<React.SetStateAction<string>>;
+  purchaseAmountUSD: string;
+  setPurchaseAmountUSD: React.Dispatch<React.SetStateAction<string>>;
 }) => (
   <>
-    <div className="grid gap-2">
-      <label
-        htmlFor="token-name"
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
-        Token Name/Symbol
-      </label>
+    <div className="grid gap-1.5">
+      <Label htmlFor="token-name">Token Name/Symbol</Label>
       <Input
         id="token-name"
-        placeholder="e.g., BTC"
+        placeholder="e.g., BTC, Ethereum"
         value={tokenName}
         onChange={e => setTokenName(e.target.value)}
-        className="bg-background dark:bg-gray-800 border-border dark:border-gray-700 focus:border-primary dark:focus:border-primary"
       />
     </div>
-    <div className="grid gap-2">
-      <label
-        htmlFor="purchase-date"
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
-        Purchase Date
-      </label>
+    <div className="grid gap-1.5">
+      <Label htmlFor="purchase-date">Purchase Date</Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button
+            id="purchase-date"
             variant={'outline'}
             className={cn(
-              'w-full justify-start text-left font-normal bg-background dark:bg-gray-800 border-border dark:border-gray-700 hover:bg-muted dark:hover:bg-gray-700',
+              'w-full justify-start text-left font-normal',
               !purchaseDate && 'text-muted-foreground'
             )}
           >
@@ -136,42 +141,21 @@ const InputFields = ({
         </PopoverContent>
       </Popover>
     </div>
-    <div className="grid gap-2">
-      <label
-        htmlFor="purchase-price"
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
-        Purchase Price
-      </label>
+    <div className="grid gap-1.5">
+      <Label htmlFor="purchase-amount">Purchase Amount (USD)</Label>
       <Input
-        id="purchase-price"
-        type="text" // Changed to text to allow more flexible input
-        placeholder="e.g., 30000"
-        value={purchasePrice}
-        onChange={e => setPurchasePrice(e.target.value)}
-        className="bg-background dark:bg-gray-800 border-border dark:border-gray-700 focus:border-primary dark:focus:border-primary"
-      />
-    </div>
-    <div className="grid gap-2">
-      <label
-        htmlFor="quantity"
-        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-      >
-        Quantity
-      </label>
-      <Input
-        id="quantity"
-        type="text" // Changed to text to allow more flexible input
-        placeholder="e.g., 1"
-        value={quantity}
-        onChange={e => setQuantity(e.target.value)}
-        className="bg-background dark:bg-gray-800 border-border dark:border-gray-700 focus:border-primary dark:focus:border-primary"
+        id="purchase-amount"
+        type="number"
+        placeholder="e.g., 100"
+        value={purchaseAmountUSD}
+        onChange={e => setPurchaseAmountUSD(e.target.value)}
+        min="0.01"
+        step="any"
       />
     </div>
   </>
 );
 
-// Functional component to display each history item
 const HistoryItem = ({
   item,
   onRemove,
@@ -183,8 +167,11 @@ const HistoryItem = ({
   onRefresh: (item: CalculationHistoryItem) => void;
   onSell: (item: CalculationHistoryItem, targetProfit: number) => void;
 }) => {
-  const profitColorClass = item.result.profitLoss >= 0 ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400';
-  const profitText = item.result.profitLoss >= 0 ? 'Profit' : 'Loss';
+  const isProfit = item.result.profitLoss >= 0;
+  const profitLossColor = isProfit ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400';
+  const profitLossText = isProfit ? 'Profit' : 'Loss';
+  const ProfitLossIcon = isProfit ? TrendingUp : TrendingDown;
+
   const [showSellInput, setShowSellInput] = useState(false);
   const [targetProfit, setTargetProfit] = useState('');
 
@@ -197,46 +184,47 @@ const HistoryItem = ({
   };
 
   return (
-    <Card className="mb-4 border border-border dark:border-gray-700 bg-card dark:bg-gray-800 shadow-none">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-2">
+    <TooltipProvider delayDuration={300}>
+    <Card className="mb-3 border-border/70 dark:border-gray-700/70 bg-card dark:bg-gray-800/80 shadow-sm hover:shadow-md transition-shadow duration-200">
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between mb-2">
           <div>
-            <p className="font-semibold text-lg text-foreground dark:text-gray-100">{item.tokenName}</p>
+            <p className="font-semibold text-md text-foreground dark:text-gray-100">{item.tokenName}</p>
             <p className="text-xs text-muted-foreground dark:text-gray-400">
-              Purchased: {item.purchaseDate}
+              Invested ${formatNumber(item.purchaseAmountUSD, 2)} on {format(new Date(item.purchaseDate), 'MMM d, yyyy')}
             </p>
           </div>
           <div className="flex space-x-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary"
-              onClick={() => onRefresh(item)}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-             <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-primary dark:text-gray-400 dark:hover:text-primary"
-              onClick={() => setShowSellInput(!showSellInput)}
-            >
-              <DollarSign className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-muted-foreground hover:text-destructive dark:text-gray-400 dark:hover:text-destructive-foreground"
-              onClick={() => onRemove(item.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => onRefresh(item)}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Refresh current price</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setShowSellInput(!showSellInput)}>
+                  <DollarSign className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Simulate Sell Order</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:text-destructive" onClick={() => onRemove(item.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Remove from history</p></TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
         {showSellInput && (
-          <div className="mt-2 mb-3 p-3 bg-muted/50 dark:bg-gray-700/50 rounded-md">
-            <label htmlFor={`sell-target-${item.id}`} className="text-xs text-muted-foreground dark:text-gray-400">Target Profit ($)</label>
+          <div className="mt-2 mb-3 p-2.5 bg-muted/70 dark:bg-gray-700/70 rounded-md">
+            <Label htmlFor={`sell-target-${item.id}`} className="text-xs text-muted-foreground dark:text-gray-400">Target Profit ($) for Sell</Label>
             <div className="flex items-center space-x-2 mt-1">
               <Input
                 id={`sell-target-${item.id}`}
@@ -244,45 +232,55 @@ const HistoryItem = ({
                 placeholder="e.g., 100"
                 value={targetProfit}
                 onChange={(e) => setTargetProfit(e.target.value)}
-                className="h-8 text-sm bg-background dark:bg-gray-800 border-border dark:border-gray-600 focus:border-primary dark:focus:border-primary"
+                className="h-8 text-sm"
               />
-              <Button variant="outline" size="icon" className="h-8 w-8 bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700" onClick={handleSellClick}>
+              <Button variant="outline" size="icon" className="h-8 w-8 bg-green-500 hover:bg-green-600 text-primary-foreground" onClick={handleSellClick}>
                 <Send className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive dark:text-gray-400 dark:hover:text-red-400" onClick={() => setShowSellInput(false)}>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setShowSellInput(false)}>
                 <XCircle className="h-4 w-4" />
               </Button>
             </div>
+             <p className="text-xs text-muted-foreground mt-1.5">Current Profit: ${formatNumber(item.result.profitLoss, 2)}</p>
           </div>
         )}
 
-        <Separator className="my-2 bg-border dark:bg-gray-700" />
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <Separator className="my-2 bg-border/50 dark:bg-gray-700/50" />
+        
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
           <div>
-            <p className="text-xs text-muted-foreground dark:text-gray-400">Purchase Price:</p>
-            <p className="font-medium text-foreground dark:text-gray-200">${formatNumber(item.purchasePrice)}</p>
+            <p className="text-muted-foreground dark:text-gray-400">Qty Purchased:</p>
+            <p className="font-medium text-foreground dark:text-gray-200">{formatNumber(item.result.quantityPurchased, 8)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-gray-400">Quantity:</p>
-            <p className="font-medium text-foreground dark:text-gray-200">{item.quantity}</p>
+            <p className="text-muted-foreground dark:text-gray-400">Price at Purchase:</p>
+            <p className="font-medium text-foreground dark:text-gray-200">${formatNumber(item.result.priceAtPurchase)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground dark:text-gray-400">Current Price:</p>
+            <p className="text-muted-foreground dark:text-gray-400">Current Price:</p>
             <p className="font-medium text-foreground dark:text-gray-200">${formatNumber(item.result.currentPrice)}</p>
           </div>
+           <div>
+            <p className="text-muted-foreground dark:text-gray-400">Current Value:</p>
+            <p className="font-medium text-foreground dark:text-gray-200">${formatNumber(item.result.currentValue, 2)}</p>
+          </div>
+        </div>
+
+        <div className={`mt-2 flex items-center p-2 rounded-md bg-opacity-10 ${isProfit ? 'bg-green-500/10 dark:bg-green-500/20' : 'bg-red-500/10 dark:bg-red-500/20'}`}>
+          <ProfitLossIcon className={`h-5 w-5 mr-2 shrink-0 ${profitLossColor}`} />
           <div>
-            <p className={`text-xs ${profitColorClass}`}>{profitText}:</p>
-            <p className={`font-medium ${profitColorClass}`}>
-              ${formatNumber(item.result.profitLoss)}
+            <p className={`text-xs font-medium ${profitLossColor}`}>{profitLossText}:</p>
+            <p className={`text-lg font-bold ${profitLossColor}`}>
+              ${formatNumber(item.result.profitLoss, 2)}
             </p>
           </div>
         </div>
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 };
 
-// Component for rendering the calculation history
 const CalculationHistory = ({
   calculationHistory,
   onRemove,
@@ -296,21 +294,22 @@ const CalculationHistory = ({
   onRefresh: (item: CalculationHistoryItem) => void;
   onSell: (item: CalculationHistoryItem, targetProfit: number) => void;
 }) => (
-  <div className="h-full flex flex-col bg-muted/30 dark:bg-gray-900/50">
-    <Card className="h-full flex flex-col border-none shadow-none bg-transparent">
-      <CardHeader className="flex flex-row justify-between items-center p-4 border-b border-border dark:border-gray-700">
+  <div className="h-full flex flex-col bg-muted/30 dark:bg-black/20">
+    <Card className="h-full flex flex-col border-none shadow-none bg-transparent rounded-none">
+      <CardHeader className="flex flex-row justify-between items-center p-4 border-b border-border/70 dark:border-gray-700/70 sticky top-0 bg-background/80 dark:bg-gray-900/80 backdrop-blur-sm z-10">
         <CardTitle className="text-lg font-semibold text-foreground dark:text-gray-100">Calculation History</CardTitle>
         {calculationHistory.length > 0 && (
-           <Button variant="outline" size="sm" onClick={onClearHistory} className="text-xs border-border dark:border-gray-700 hover:bg-destructive/10 dark:hover:bg-destructive/20 hover:text-destructive dark:hover:text-destructive-foreground">
+           <Button variant="outline" size="sm" onClick={onClearHistory} className="text-xs">
             Clear All
           </Button>
         )}
       </CardHeader>
-      <CardContent className="flex-grow overflow-y-auto p-4 no-scrollbar">
+      <CardContent className="flex-grow overflow-y-auto p-4 no-scrollbar space-y-0"> {/* Removed space-y-4, HistoryItem has mb-3 */}
         {calculationHistory.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground dark:text-gray-500">
-            <p className="mt-2 text-sm">No calculations yet.</p>
-            <p className="text-xs">Your history will appear here.</p>
+          <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground dark:text-gray-500 pt-10">
+            <Briefcase className="h-12 w-12 mb-3 text-gray-400 dark:text-gray-600" />
+            <p className="text-md font-medium">No calculations yet.</p>
+            <p className="text-xs">Your past calculations will appear here.</p>
           </div>
         ) : (
           calculationHistory.map(item => (
@@ -328,155 +327,128 @@ const CalculationHistory = ({
   </div>
 );
 
-// Main Home component
 export default function Home() {
   const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  useEffect(() => setIsClient(true), []);
 
-  // Define state variables
   const [tokenName, setTokenName] = useState('');
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined);
-  const [purchasePrice, setPurchasePrice] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [profitLossResult, setProfitLossResult] = useState<CalculateProfitLossOutput | undefined>(
-    undefined
-  );
+  const [purchaseAmountUSD, setPurchaseAmountUSD] = useState('');
+  const [calculationResult, setCalculationResult] = useState<CalculateProfitLossOutput | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const {toast} = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
 
-  // Function to generate a unique ID for each history item
-  const generateId = (): string => {
-    return Math.random().toString(36).substring(2, 15) + Date.now().toString(36) ;
-  };
+  const generateId = (): string => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
-  // Load calculation history from local storage on component mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedHistory = localStorage.getItem('calculationHistory');
+    if (isClient) {
+      const storedHistory = localStorage.getItem('calculationHistory_v2'); // Changed key to avoid conflicts with old structure
       if (storedHistory) {
         try {
-          setCalculationHistory(JSON.parse(storedHistory));
+          const parsedHistory = JSON.parse(storedHistory);
+          // Basic validation for parsed history items
+          if (Array.isArray(parsedHistory) && parsedHistory.every(item => item.hasOwnProperty('purchaseAmountUSD'))) {
+            setCalculationHistory(parsedHistory);
+          } else {
+             localStorage.removeItem('calculationHistory_v2'); // Clear incompatible old data
+          }
         } catch (e) {
           console.error("Error parsing stored history:", e);
-          localStorage.removeItem('calculationHistory'); // Clear corrupted data
+          localStorage.removeItem('calculationHistory_v2');
         }
       }
     }
-  }, []);
+  }, [isClient]);
 
-  // Save calculation history to local storage whenever it changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('calculationHistory', JSON.stringify(calculationHistory));
+    if (isClient) {
+      localStorage.setItem('calculationHistory_v2', JSON.stringify(calculationHistory));
     }
-  }, [calculationHistory]);
+  }, [calculationHistory, isClient]);
 
-  // useCallback hook to memoize the calculateResult function
   const calculateResult = useCallback(async () => {
-    const parsedPurchasePrice = parseFloat(purchasePrice);
-    const parsedQuantity = parseFloat(quantity);
+    const parsedPurchaseAmountUSD = parseFloat(purchaseAmountUSD);
 
-    if (!tokenName || !purchaseDate || isNaN(parsedPurchasePrice) || isNaN(parsedQuantity)) {
+    if (!tokenName || !purchaseDate || isNaN(parsedPurchaseAmountUSD)) {
       toast({
         variant: 'destructive',
         title: 'Invalid Input',
-        description: 'Please fill in all fields with valid numbers for price and quantity.',
+        description: 'Please fill in all fields. Purchase amount must be a valid number.',
       });
       return;
     }
-     if (parsedPurchasePrice <= 0 || parsedQuantity <= 0) {
+    if (parsedPurchaseAmountUSD <= 0) {
       toast({
         variant: 'destructive',
         title: 'Invalid Input',
-        description: 'Purchase price and quantity must be greater than zero.',
+        description: 'Purchase amount must be greater than zero.',
       });
       return;
     }
-
 
     setIsLoading(true);
-    setProfitLossResult(undefined); // Clear previous result
+    setCalculationResult(undefined);
     try {
-      // Prepare input for the calculateProfitLoss function
       const input: CalculateProfitLossInput = {
         tokenName,
         purchaseDate: formatDate(purchaseDate),
-        purchasePrice: parsedPurchasePrice,
-        quantity: parsedQuantity,
+        purchaseAmountUSD: parsedPurchaseAmountUSD,
       };
 
-      // Call the calculateProfitLoss function
       const result = await calculateProfitLoss(input);
-      setProfitLossResult(result);
+      setCalculationResult(result);
 
-      // Create a new history item with a unique ID
       const newHistoryItem: CalculationHistoryItem = {
-        ...input,
+        tokenName: input.tokenName,
+        purchaseDate: input.purchaseDate,
+        purchaseAmountUSD: input.purchaseAmountUSD,
         result,
         id: generateId(),
       };
-
-      // Update calculation history
-      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]); // Keep max 20 items
-       toast({
+      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]);
+      toast({
         title: 'Calculation Successful',
         description: `Profit/loss for ${tokenName} calculated.`,
       });
     } catch (error: any) {
-      // Display error message
       console.error('Error calculating profit/loss:', error);
       toast({
         variant: 'destructive',
         title: 'Calculation Error',
-        description: error.message || 'Failed to calculate profit/loss. The token might not exist or data is unavailable.',
+        description: error.message || 'Failed to calculate. The token might not exist or data is unavailable for the selected date.',
       });
     } finally {
       setIsLoading(false);
     }
-  }, [tokenName, purchaseDate, purchasePrice, quantity, toast]);
+  }, [tokenName, purchaseDate, purchaseAmountUSD, toast]);
 
-  // Function to remove a specific item from the calculation history
   const removeHistoryItem = (id: string) => {
-    setCalculationHistory(prevHistory => {
-      const updatedHistory = prevHistory.filter(item => item.id !== id);
-      // No need to directly call localStorage.setItem here, useEffect for calculationHistory handles it
-      return updatedHistory;
-    });
-     toast({
-      title: 'Item Removed',
-      description: 'The calculation has been removed from history.',
-    });
+    setCalculationHistory(prevHistory => prevHistory.filter(item => item.id !== id));
+    toast({ title: 'Item Removed', description: 'The calculation has been removed from history.' });
   };
 
-  // Function to clear the entire calculation history
   const clearHistory = () => {
     setCalculationHistory([]);
-    // No need to directly call localStorage.removeItem here, useEffect for calculationHistory handles it
-    toast({
-      title: 'History Cleared',
-      description: 'All calculations have been removed from history.',
-    });
+    toast({ title: 'History Cleared', description: 'All calculations have been removed from history.' });
   };
 
-  // Function to refresh a specific item in the calculation history
   const refreshHistoryItem = async (item: CalculationHistoryItem) => {
-    setIsLoading(true);
+    setIsLoading(true); // Can use a specific loading state for history items if needed
     try {
-      // Fetch current price
-      const tokenInfo = await getTokenInfo(item.tokenName);
-      const currentPrice = tokenInfo.currentPrice;
+      const currentTokenInfo = await getTokenInfo(item.tokenName);
+      const newCurrentPrice = currentTokenInfo.currentPrice;
 
-      // Recalculate profit/loss
-      const profitLoss = (currentPrice - item.purchasePrice) * item.quantity;
+      const newCurrentValue = item.result.quantityPurchased * newCurrentPrice;
+      const newProfitLoss = newCurrentValue - item.purchaseAmountUSD;
+
       const updatedResult: CalculateProfitLossOutput = {
-        currentPrice: currentPrice,
-        profitLoss: profitLoss,
+        ...item.result, // Keep priceAtPurchase and quantityPurchased
+        currentPrice: newCurrentPrice,
+        currentValue: newCurrentValue,
+        profitLoss: newProfitLoss,
       };
 
-      // Update the item in history
       setCalculationHistory(prevHistory =>
         prevHistory.map(hItem =>
           hItem.id === item.id ? {...hItem, result: updatedResult} : hItem
@@ -484,74 +456,69 @@ export default function Home() {
       );
       toast({
         title: 'Item Refreshed',
-        description: `Current price for ${item.tokenName} updated.`,
+        description: `Data for ${item.tokenName} updated.`,
       });
     } catch (error: any) {
-      console.error('Error refreshing profit/loss:', error);
+      console.error('Error refreshing item:', error);
       toast({
         variant: 'destructive',
         title: 'Refresh Error',
-        description: error.message || 'Failed to refresh profit/loss.',
+        description: error.message || 'Failed to refresh item.',
       });
     } finally {
       setIsLoading(false);
     }
   };
-
+  
   const handleSellItem = (item: CalculationHistoryItem, targetProfit: number) => {
-    // This is a placeholder for actual sell logic
-    // In a real app, this would interact with an exchange API
-    console.log(`Attempting to sell ${item.quantity} of ${item.tokenName} when profit reaches $${targetProfit}`);
+    console.log(`Simulated sell order for ${item.tokenName} if profit reaches $${targetProfit}`);
     toast({
       title: 'Sell Order Placed (Simulated)',
-      description: `Will sell ${item.quantity} of ${item.tokenName} if profit reaches $${targetProfit}. Current profit: $${formatNumber(item.result.profitLoss)}`,
+      description: `Will "sell" ${formatNumber(item.result.quantityPurchased, 8)} of ${item.tokenName} if profit reaches $${formatNumber(targetProfit, 2)}. Current profit: $${formatNumber(item.result.profitLoss, 2)}`,
     });
-    // You might want to add further logic here, like:
-    // - Storing this "sell order" locally or on a server
-    // - Periodically checking if the condition is met
   };
 
+  if (!isClient) return null;
 
-  if (!isClient) {
-    return null; // Or a loading spinner, but null avoids hydration issues on initial server render
-  }
-
-  // Render the component
   return (
-    <div className="flex flex-col md:flex-row h-screen max-h-screen overflow-hidden bg-background dark:bg-gray-900 text-foreground dark:text-gray-100">
-      <div className="flex flex-col justify-center items-center p-6 md:w-1/2 w-full overflow-y-auto no-scrollbar">
-        <Card className="w-full max-w-md shadow-none border-border dark:border-gray-700 bg-card dark:bg-gray-800">
-          <CardHeader className="border-b border-border dark:border-gray-700 pb-4">
-            <CardTitle className="text-xl font-semibold">Token Time Machine</CardTitle>
+    <div className="flex flex-col md:flex-row h-screen max-h-screen overflow-hidden bg-background dark:bg-gray-950 text-foreground dark:text-gray-100">
+      <main className="flex flex-col justify-center items-center p-4 sm:p-6 md:w-1/2 w-full overflow-y-auto no-scrollbar">
+        <Card className="w-full max-w-md shadow-xl dark:shadow-2xl bg-card dark:bg-gray-900/80 backdrop-blur-md border-border/50 dark:border-gray-700/50">
+          <CardHeader className="border-b border-border/50 dark:border-gray-700/50 pb-4">
+            <CardTitle className="text-xl font-semibold flex items-center">
+              <TrendingUp className="mr-2 h-6 w-6 text-primary"/> Token Time Machine
+            </CardTitle>
             <CardDescription className="text-sm text-muted-foreground dark:text-gray-400">
-              Calculate potential crypto profit & loss.
+              See how much your past crypto investments would be worth today.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 p-6">
+          <CardContent className="grid gap-4 p-4 sm:p-6">
             <InputFields
               tokenName={tokenName}
               setTokenName={setTokenName}
               purchaseDate={purchaseDate}
               setPurchaseDate={setPurchaseDate}
-              purchasePrice={purchasePrice}
-              setPurchasePrice={setPurchasePrice}
-              quantity={quantity}
-              setQuantity={setQuantity}
+              purchaseAmountUSD={purchaseAmountUSD}
+              setPurchaseAmountUSD={setPurchaseAmountUSD}
             />
             <Button
               onClick={calculateResult}
               disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground dark:bg-primary dark:hover:bg-primary/80"
+              className="w-full text-base py-3"
+              size="lg"
             >
-              {isLoading ? 'Calculating...' : 'Calculate Profit/Loss'}
+              {isLoading ? 'Calculating...' : 'Calculate Value'}
             </Button>
-            {profitLossResult && <ResultDisplay profitLossResult={profitLossResult} />}
+            {calculationResult && <ResultDisplay result={calculationResult} />}
           </CardContent>
         </Card>
-      </div>
+         <p className="text-xs text-muted-foreground mt-6 text-center max-w-md">
+          <Info size={14} className="inline mr-1 mb-0.5"/>
+          Historical price data is mocked for demonstration. For accurate calculations, integrate a real historical data API.
+        </p>
+      </main>
 
-      {/* Calculation History Section */}
-      <div className="md:w-1/2 w-full h-full md:max-h-screen md:border-l border-border dark:border-gray-700">
+      <aside className="md:w-1/2 w-full h-full md:max-h-screen md:border-l border-border/50 dark:border-gray-700/50">
         <CalculationHistory
           calculationHistory={calculationHistory}
           onRemove={removeHistoryItem}
@@ -559,7 +526,7 @@ export default function Home() {
           onRefresh={refreshHistoryItem}
           onSell={handleSellItem}
         />
-      </div>
+      </aside>
     </div>
   );
 }

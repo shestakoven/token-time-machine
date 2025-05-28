@@ -1,6 +1,7 @@
+
 'use server';
 /**
- * @fileOverview Calculates potential profit/loss for a given token based on purchase date and price.
+ * @fileOverview Calculates potential profit/loss for a given token based on purchase date and amount invested.
  *
  * - calculateProfitLoss - A function that handles the profit/loss calculation process.
  * - CalculateProfitLossInput - The input type for the calculateProfitLoss function.
@@ -9,19 +10,21 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
-import {getTokenInfo} from '@/services/token-price';
+import {getTokenInfo, getHistoricalTokenPrice} from '@/services/token-price';
 
 const CalculateProfitLossInputSchema = z.object({
   tokenName: z.string().describe('The name or symbol of the token.'),
   purchaseDate: z.string().describe('The date when the token was purchased (YYYY-MM-DD).'),
-  purchasePrice: z.number().describe('The price at which the token was purchased.'),
-  quantity: z.number().describe('The amount of tokens purchased.'),
+  purchaseAmountUSD: z.number().describe('The total amount in USD invested in the token on the purchase date.'),
 });
 export type CalculateProfitLossInput = z.infer<typeof CalculateProfitLossInputSchema>;
 
 const CalculateProfitLossOutputSchema = z.object({
-  currentPrice: z.number().describe('The current price of the token.'),
-  profitLoss: z.number().describe('The calculated profit or loss.'),
+  priceAtPurchase: z.number().describe('The price of the token per unit at the time of purchase.'),
+  quantityPurchased: z.number().describe('The amount of tokens purchased.'),
+  currentPrice: z.number().describe('The current price of the token per unit.'),
+  currentValue: z.number().describe('The current total value of the purchased tokens.'),
+  profitLoss: z.number().describe('The calculated profit or loss in USD.'),
 });
 export type CalculateProfitLossOutput = z.infer<typeof CalculateProfitLossOutputSchema>;
 
@@ -29,48 +32,42 @@ export async function calculateProfitLoss(input: CalculateProfitLossInput): Prom
   return calculateProfitLossFlow(input);
 }
 
-const calculateProfitLossPrompt = ai.definePrompt({
-  name: 'calculateProfitLossPrompt',
-  input: {
-    schema: z.object({
-      tokenName: z.string().describe('The name or symbol of the token.'),
-      purchaseDate: z.string().describe('The date when the token was purchased (YYYY-MM-DD).'),
-      purchasePrice: z.number().describe('The price at which the token was purchased.'),
-      currentPrice: z.number().describe('The current price of the token.'),
-      quantity: z.number().describe('The amount of tokens purchased.'),
-    }),
-  },
-  output: {
-    schema: z.object({
-      profitLoss: z.number().describe('The calculated profit or loss.'),
-    }),
-  },
-  prompt: `You are a financial expert. Calculate the profit or loss based on the following information:\n\nToken Name: {{{tokenName}}}\nPurchase Date: {{{purchaseDate}}}\nPurchase Price: {{{purchasePrice}}}\nCurrent Price: {{{currentPrice}}}\nQuantity: {{{quantity}}}\n\nCalculate the profit/loss by subtracting the purchase price from the current price, then multiplying by the quantity.\nReturn only the profit/loss amount. Do not include any explanations or additional text.`,
-});
-
-const calculateProfitLossFlow = ai.defineFlow<
-  typeof CalculateProfitLossInputSchema,
-  typeof CalculateProfitLossOutputSchema
->(
+const calculateProfitLossFlow = ai.defineFlow(
   {
     name: 'calculateProfitLossFlow',
     inputSchema: CalculateProfitLossInputSchema,
     outputSchema: CalculateProfitLossOutputSchema,
   },
-  async input => {
-    const tokenInfo = await getTokenInfo(input.tokenName);
-    const currentPrice = tokenInfo.currentPrice;
+  async (input: CalculateProfitLossInput): Promise<CalculateProfitLossOutput> => {
+    const { tokenName, purchaseDate, purchaseAmountUSD } = input;
 
-    const promptOutput = await calculateProfitLossPrompt({
-      ...input,
-      currentPrice,
-    });
-    
-    const profitLoss = (currentPrice - input.purchasePrice) * input.quantity;
+    // 1. Fetch historical price of the token on the purchaseDate
+    const historicalPriceInfo = await getHistoricalTokenPrice(tokenName, purchaseDate);
+    const priceAtPurchase = historicalPriceInfo.priceUSD;
+
+    if (priceAtPurchase <= 0) {
+      throw new Error(`Historical price for ${tokenName} on ${purchaseDate} is invalid (≤0). Cannot calculate quantity.`);
+    }
+
+    // 2. Calculate the quantity of tokens purchased
+    const quantityPurchased = purchaseAmountUSD / priceAtPurchase;
+
+    // 3. Fetch the current price of the token
+    const currentTokenInfo = await getTokenInfo(tokenName);
+    const currentPrice = currentTokenInfo.currentPrice;
+
+    // 4. Calculate the current value of the investment
+    const currentValue = quantityPurchased * currentPrice;
+
+    // 5. Calculate profit or loss
+    const profitLoss = currentValue - purchaseAmountUSD;
 
     return {
-      currentPrice: currentPrice,
-      profitLoss: profitLoss,
+      priceAtPurchase,
+      quantityPurchased,
+      currentPrice,
+      currentValue,
+      profitLoss,
     };
   }
 );
