@@ -17,6 +17,7 @@ import {
 import {cn} from '@/lib/utils';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
+import { Label } from "@/components/ui/label";
 import {useState, useEffect, useCallback} from 'react';
 import {useToast} from '@/hooks/use-toast';
 import {format} from 'date-fns';
@@ -42,8 +43,32 @@ const formatDate = (date: Date | undefined): string => {
 const formatNumber = (value: number | undefined, precision = 5): string => {
   if (value === undefined || value === null) return '0.00000';
   if (Math.abs(value) < 0.00001 && value !== 0 && precision >= 5) {
-    return value.toExponential(4);
+    // For very small non-zero numbers, use exponential notation if precision allows
+    // Otherwise, toFixed might round it to 0.00000
+    const exponential = value.toExponential(4);
+    if (parseFloat(exponential) !== 0) return exponential;
   }
+  // Ensure a minimum number of decimal places for consistency if it's a very small number
+  if (Math.abs(value) < 1 && value !==0 && precision < 8) {
+      const numStr = value.toString();
+      const decimalIndex = numStr.indexOf('.');
+      if (decimalIndex !== -1) {
+        const decimalPlaces = numStr.length - decimalIndex - 1;
+        if (decimalPlaces > precision) {
+             // Use a higher precision temporarily to avoid rounding to zero for display purposes
+            // This is tricky, as toFixed itself does rounding.
+            // Alternative: show more places for small numbers or use custom formatting.
+            let tempPrecision = precision;
+            let formatted = value.toFixed(tempPrecision);
+            while(parseFloat(formatted) === 0 && value !== 0 && tempPrecision < 10) {
+                tempPrecision++;
+                formatted = value.toFixed(tempPrecision);
+            }
+            if (parseFloat(formatted) !== 0) return formatted;
+        }
+      }
+  }
+
   return value.toFixed(precision);
 };
 
@@ -149,8 +174,8 @@ const InputFields = ({
         placeholder="e.g., 100"
         value={purchaseAmountUSD}
         onChange={e => setPurchaseAmountUSD(e.target.value)}
-        min="0.01"
-        step="any"
+        min="0.00000001" // Allow very small positive numbers
+        step="any" // Allow any decimal places
       />
     </div>
   </>
@@ -233,6 +258,7 @@ const HistoryItem = ({
                 value={targetProfit}
                 onChange={(e) => setTargetProfit(e.target.value)}
                 className="h-8 text-sm"
+                step="any"
               />
               <Button variant="outline" size="icon" className="h-8 w-8 bg-green-500 hover:bg-green-600 text-primary-foreground" onClick={handleSellClick}>
                 <Send className="h-4 w-4" />
@@ -339,28 +365,39 @@ export default function Home() {
   const {toast} = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
 
+  // Generates a unique ID for history items.
+  // Using Math.random and Date.now for simplicity, consider a more robust UUID in production.
   const generateId = (): string => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
+  // Load history from localStorage when component mounts on the client-side
   useEffect(() => {
     if (isClient) {
       const storedHistory = localStorage.getItem('calculationHistory_v2'); // Changed key to avoid conflicts with old structure
       if (storedHistory) {
         try {
           const parsedHistory = JSON.parse(storedHistory);
-          // Basic validation for parsed history items
-          if (Array.isArray(parsedHistory) && parsedHistory.every(item => item.hasOwnProperty('purchaseAmountUSD'))) {
+          // Basic validation to ensure the stored data is in the expected format
+          if (Array.isArray(parsedHistory) && parsedHistory.every(item => 
+              item.hasOwnProperty('tokenName') &&
+              item.hasOwnProperty('purchaseDate') &&
+              item.hasOwnProperty('purchaseAmountUSD') &&
+              item.hasOwnProperty('result') &&
+              item.hasOwnProperty('id')
+          )) {
             setCalculationHistory(parsedHistory);
           } else {
+             console.warn("Stored history format is incompatible. Clearing.");
              localStorage.removeItem('calculationHistory_v2'); // Clear incompatible old data
           }
         } catch (e) {
           console.error("Error parsing stored history:", e);
-          localStorage.removeItem('calculationHistory_v2');
+          localStorage.removeItem('calculationHistory_v2'); // Clear corrupted data
         }
       }
     }
   }, [isClient]);
 
+  // Save history to localStorage whenever it changes
   useEffect(() => {
     if (isClient) {
       localStorage.setItem('calculationHistory_v2', JSON.stringify(calculationHistory));
@@ -388,25 +425,27 @@ export default function Home() {
     }
 
     setIsLoading(true);
-    setCalculationResult(undefined);
+    setCalculationResult(undefined); // Clear previous result before new calculation
     try {
       const input: CalculateProfitLossInput = {
         tokenName,
-        purchaseDate: formatDate(purchaseDate),
+        purchaseDate: formatDate(purchaseDate), // Format date to YYYY-MM-DD
         purchaseAmountUSD: parsedPurchaseAmountUSD,
       };
 
       const result = await calculateProfitLoss(input);
       setCalculationResult(result);
 
+      // Add to history (max 20 items, newest first)
       const newHistoryItem: CalculationHistoryItem = {
         tokenName: input.tokenName,
-        purchaseDate: input.purchaseDate,
+        purchaseDate: input.purchaseDate, // Store formatted date
         purchaseAmountUSD: input.purchaseAmountUSD,
         result,
         id: generateId(),
       };
-      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]);
+      setCalculationHistory(prevHistory => [newHistoryItem, ...prevHistory.slice(0, 19)]); // Keep history to 20 items
+
       toast({
         title: 'Calculation Successful',
         description: `Profit/loss for ${tokenName} calculated.`,
@@ -421,7 +460,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [tokenName, purchaseDate, purchaseAmountUSD, toast]);
+  }, [tokenName, purchaseDate, purchaseAmountUSD, toast]); // Dependencies for useCallback
 
   const removeHistoryItem = (id: string) => {
     setCalculationHistory(prevHistory => prevHistory.filter(item => item.id !== id));
@@ -434,26 +473,31 @@ export default function Home() {
   };
 
   const refreshHistoryItem = async (item: CalculationHistoryItem) => {
-    setIsLoading(true); // Can use a specific loading state for history items if needed
+    setIsLoading(true); // Consider a more granular loading state if needed
     try {
+      // 1. Fetch the new current price for the token
       const currentTokenInfo = await getTokenInfo(item.tokenName);
       const newCurrentPrice = currentTokenInfo.currentPrice;
 
+      // 2. Recalculate current value and profit/loss using existing purchase data
       const newCurrentValue = item.result.quantityPurchased * newCurrentPrice;
       const newProfitLoss = newCurrentValue - item.purchaseAmountUSD;
 
+      // 3. Create the updated result object
       const updatedResult: CalculateProfitLossOutput = {
-        ...item.result, // Keep priceAtPurchase and quantityPurchased
+        ...item.result, // Keep original priceAtPurchase and quantityPurchased
         currentPrice: newCurrentPrice,
         currentValue: newCurrentValue,
         profitLoss: newProfitLoss,
       };
 
+      // 4. Update the specific item in the history
       setCalculationHistory(prevHistory =>
-        prevHistory.map(hItem =>
-          hItem.id === item.id ? {...hItem, result: updatedResult} : hItem
+        prevHistory.map(historyItem =>
+          historyItem.id === item.id ? {...historyItem, result: updatedResult} : historyItem
         )
       );
+
       toast({
         title: 'Item Refreshed',
         description: `Data for ${item.tokenName} updated.`,
@@ -463,7 +507,7 @@ export default function Home() {
       toast({
         variant: 'destructive',
         title: 'Refresh Error',
-        description: error.message || 'Failed to refresh item.',
+        description: error.message || `Failed to refresh ${item.tokenName}.`,
       });
     } finally {
       setIsLoading(false);
@@ -471,17 +515,23 @@ export default function Home() {
   };
   
   const handleSellItem = (item: CalculationHistoryItem, targetProfit: number) => {
+    // This is a simulation. In a real app, this would trigger a trade execution.
     console.log(`Simulated sell order for ${item.tokenName} if profit reaches $${targetProfit}`);
     toast({
       title: 'Sell Order Placed (Simulated)',
       description: `Will "sell" ${formatNumber(item.result.quantityPurchased, 8)} of ${item.tokenName} if profit reaches $${formatNumber(targetProfit, 2)}. Current profit: $${formatNumber(item.result.profitLoss, 2)}`,
     });
+    // Potentially, you could add logic here to monitor this "order" or add it to a separate list of pending actions.
   };
 
-  if (!isClient) return null;
+  // Only render on the client-side after hydration to avoid mismatches
+  if (!isClient) {
+    return null; // Or a loading spinner if preferred
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-screen max-h-screen overflow-hidden bg-background dark:bg-gray-950 text-foreground dark:text-gray-100">
+      {/* Main Content Area (Calculation Form) */}
       <main className="flex flex-col justify-center items-center p-4 sm:p-6 md:w-1/2 w-full overflow-y-auto no-scrollbar">
         <Card className="w-full max-w-md shadow-xl dark:shadow-2xl bg-card dark:bg-gray-900/80 backdrop-blur-md border-border/50 dark:border-gray-700/50">
           <CardHeader className="border-b border-border/50 dark:border-gray-700/50 pb-4">
@@ -518,6 +568,7 @@ export default function Home() {
         </p>
       </main>
 
+      {/* Sidebar Area (Calculation History) */}
       <aside className="md:w-1/2 w-full h-full md:max-h-screen md:border-l border-border/50 dark:border-gray-700/50">
         <CalculationHistory
           calculationHistory={calculationHistory}
