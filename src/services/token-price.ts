@@ -70,8 +70,8 @@ export async function getHistoricalTokenPrice(
   const fromTimestamp = Math.floor(purchaseDateStart.getTime() / 1000);
   const toTimestamp = Math.floor(purchaseDateEnd.getTime() / 1000);
 
-  // Using "D" for daily resolution. DexGuru might also support "1D". Let's stick to "D".
-  const resolution = 'D';
+  // Using "1D" for daily resolution.
+  const resolution = '1D';
   const historyUrl = `https://api.dex.guru/v1/tradingview/history?symbol=${symbol}&resolution=${resolution}&from=${fromTimestamp}&to=${toTimestamp}&countback=1`;
   
   console.log(`Fetching historical price from: ${historyUrl}`);

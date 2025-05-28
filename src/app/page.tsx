@@ -22,7 +22,7 @@ import {useState, useEffect, useCallback} from 'react';
 import {useToast} from '@/hooks/use-toast';
 import {format} from 'date-fns';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {Trash2, RefreshCw, DollarSign, Send, XCircle, Briefcase, TrendingUp, TrendingDown, Info } from 'lucide-react';
+import {Trash2, RefreshCw, DollarSign, Send, XCircle, Briefcase, TrendingUp, TrendingDown } from 'lucide-react';
 import {Separator} from '@/components/ui/separator';
 import {getTokenInfo} from '@/services/token-price';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -562,10 +562,7 @@ export default function Home() {
             {calculationResult && <ResultDisplay result={calculationResult} />}
           </CardContent>
         </Card>
-         <p className="text-xs text-muted-foreground mt-6 text-center max-w-md">
-          <Info size={14} className="inline mr-1 mb-0.5"/>
-          Historical price data is mocked for demonstration. For accurate calculations, integrate a real historical data API.
-        </p>
+        
       </main>
 
       {/* Sidebar Area (Calculation History) */}
