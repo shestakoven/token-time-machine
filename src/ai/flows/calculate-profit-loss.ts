@@ -8,7 +8,7 @@
  * - CalculateProfitLossOutput - The return type for the calculateProfitLoss function.
  */
 
-import {ai} from '@/ai/ai-instance';
+import {ai} from '@/ai/ai-instance'; // ai instance is kept for consistency, though not directly used for a prompt here.
 import {z} from 'genkit';
 import {getTokenInfo, getHistoricalTokenPrice} from '@/services/token-price';
 
@@ -41,20 +41,21 @@ const calculateProfitLossFlow = ai.defineFlow(
   async (input: CalculateProfitLossInput): Promise<CalculateProfitLossOutput> => {
     const { tokenName, purchaseDate, purchaseAmountUSD } = input;
 
-    // 1. Fetch historical price of the token on the purchaseDate
-    const historicalPriceInfo = await getHistoricalTokenPrice(tokenName, purchaseDate);
+    // 1. Fetch current token info (price and ID)
+    const tokenInfo = await getTokenInfo(tokenName);
+    const currentPrice = tokenInfo.currentPrice;
+    const tokenId = tokenInfo.id; // ID like "0xaddress-chain"
+
+    // 2. Fetch historical price of the token on the purchaseDate using its ID
+    const historicalPriceInfo = await getHistoricalTokenPrice(tokenId, purchaseDate);
     const priceAtPurchase = historicalPriceInfo.priceUSD;
 
     if (priceAtPurchase <= 0) {
-      throw new Error(`Historical price for ${tokenName} on ${purchaseDate} is invalid (≤0). Cannot calculate quantity.`);
+      throw new Error(`Historical price for ${tokenName} (${tokenId}) on ${purchaseDate} is invalid (≤0). Cannot calculate quantity.`);
     }
 
-    // 2. Calculate the quantity of tokens purchased
+    // 3. Calculate the quantity of tokens purchased
     const quantityPurchased = purchaseAmountUSD / priceAtPurchase;
-
-    // 3. Fetch the current price of the token
-    const currentTokenInfo = await getTokenInfo(tokenName);
-    const currentPrice = currentTokenInfo.currentPrice;
 
     // 4. Calculate the current value of the investment
     const currentValue = quantityPurchased * currentPrice;
