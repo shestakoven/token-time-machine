@@ -403,9 +403,10 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const {toast} = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
+  const [isConnectorChooserOpen, setIsConnectorChooserOpen] = useState(false);
 
   const { address, status: accountStatus } = useAccount();
-  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
+  const { connect, connectors, error: connectError, isPending: isConnecting, pendingConnector } = useConnect();
   const { disconnect } = useDisconnect();
 
   useEffect(() => {
@@ -413,19 +414,6 @@ export default function Home() {
       toast({ variant: "destructive", title: "Connection Failed", description: connectError.message });
     }
   }, [connectError, toast]);
-
-  const handleConnectWallet = () => {
-    // Attempt to connect with the first available injected connector (e.g., MetaMask)
-    const injectedConnector = connectors.find(c => c.type === 'injected');
-    if (injectedConnector) {
-      connect({ connector: injectedConnector });
-    } else if (connectors.length > 0) {
-      // Fallback to the first connector if no injected one is found
-      connect({ connector: connectors[0] });
-    } else {
-      toast({ variant: "destructive", title: "No Wallet Found", description: "Please install an EVM-compatible wallet like MetaMask." });
-    }
-  };
 
   const handleDisconnectWallet = () => {
     disconnect();
@@ -670,17 +658,64 @@ export default function Home() {
                       Disconnect
                     </Button>
                   </div>
-                ) : (
-                  <Button 
-                    onClick={handleConnectWallet} 
-                    disabled={isConnecting || connectors.length === 0}
-                    variant="outline" 
-                    size="sm" 
-                    className="text-xs h-8 rounded-md border-border/70 hover:bg-muted/50"
-                  >
-                    <Wallet className="mr-1.5 h-4 w-4" />
-                    {isConnecting ? 'Connecting...' : (connectors.length === 0 ? 'Wallet Needed' : 'Connect Wallet')}
-                  </Button>
+                ) : ( // Not connected
+                  <>
+                    {connectors.length === 0 ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8 rounded-md border-border/70 hover:bg-muted/50"
+                        onClick={() => toast({ variant: "destructive", title: "No Wallet Found", description: "Please install an EVM-compatible wallet like MetaMask." })}
+                      >
+                        <Wallet className="mr-1.5 h-4 w-4" />
+                        Wallet Needed
+                      </Button>
+                    ) : connectors.length === 1 ? (
+                      <Button
+                        onClick={() => connect({ connector: connectors[0] })}
+                        disabled={isConnecting}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-8 rounded-md border-border/70 hover:bg-muted/50"
+                      >
+                        <Wallet className="mr-1.5 h-4 w-4" />
+                        {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                      </Button>
+                    ) : ( // More than 1 connector
+                      <Popover open={isConnectorChooserOpen} onOpenChange={setIsConnectorChooserOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 rounded-md border-border/70 hover:bg-muted/50"
+                            disabled={isConnecting}
+                          >
+                            <Wallet className="mr-1.5 h-4 w-4" />
+                            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-2">
+                          <div className="flex flex-col space-y-1.5">
+                            {connectors.map((connector) => (
+                              <Button
+                                key={connector.uid}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  connect({ connector });
+                                  setIsConnectorChooserOpen(false);
+                                }}
+                                disabled={isConnecting && connector.uid === pendingConnector?.uid}
+                                className="w-full justify-start text-xs h-8"
+                              >
+                                {isConnecting && connector.uid === pendingConnector?.uid ? `Connecting to ${connector.name}...` : connector.name}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </>
                 )}
               </div>
             )}
