@@ -23,7 +23,7 @@ import {useState, useEffect, useCallback} from 'react';
 import {useToast} from '@/hooks/use-toast';
 import {format} from 'date-fns';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
-import {Trash2, RefreshCw, DollarSign, Send, XCircle, Briefcase, TrendingUp, TrendingDown, CalendarIcon, Wallet } from 'lucide-react';
+import {Trash2, RefreshCw, DollarSign, Send, XCircle, Briefcase, TrendingUp, TrendingDown, CalendarIcon, Wallet, History } from 'lucide-react';
 import {Separator} from '@/components/ui/separator';
 import {getTokenInfo} from '@/services/token-price';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -404,6 +404,7 @@ export default function Home() {
   const {toast} = useToast();
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
   const [isConnectorChooserOpen, setIsConnectorChooserOpen] = useState(false);
+  const [showHistoryMobile, setShowHistoryMobile] = useState(false);
 
   const { address, status: accountStatus } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting, pendingConnector } = useConnect();
@@ -756,6 +757,19 @@ export default function Home() {
               {calculationResult && <ResultDisplay result={calculationResult} />}
             </CardContent>
           </Card>
+          
+          {/* Mobile History Toggle Button */}
+          {isClient && (
+            <Button
+              variant="outline"
+              className="mt-4 w-full md:hidden"
+              onClick={() => setShowHistoryMobile(!showHistoryMobile)}
+            >
+              {showHistoryMobile ? 'Hide History' : 'View History'}
+              <History className="ml-2 h-4 w-4" />
+            </Button>
+          )}
+
           {/* Footer */}
           <footer className="text-center mt-6 text-xs text-muted-foreground/70">
             <p>&copy; {new Date().getFullYear()} Token Time Machine. All rights reserved.</p>
@@ -765,7 +779,13 @@ export default function Home() {
       </main>
 
       {/* History Sidebar */}
-      <aside className="w-full flex-1 min-h-0 border-t md:border-t-0 md:border-l border-border/30 dark:border-border/20 md:w-1/2 lg:w-3/5 xl:w-2/3 md:flex-initial md:min-h-fit md:h-full md:max-h-screen">
+      <aside
+        className={cn(
+          "w-full flex-1 min-h-0 border-border/30 dark:border-border/20", // Common base styles
+          "md:w-1/2 lg:w-3/5 xl:w-2/3 md:flex-initial md:h-full md:max-h-screen md:border-l md:border-t-0 md:flex md:flex-col", // Desktop layout and visibility
+          isClient ? (showHistoryMobile ? "flex flex-col border-t" : "hidden") : "hidden" // Mobile visibility logic
+        )}
+      >
         <CalculationHistory
           calculationHistory={calculationHistory}
           onRemove={removeHistoryItem}
