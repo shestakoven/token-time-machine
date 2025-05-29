@@ -759,7 +759,7 @@ export default function Home() {
           {/* Footer */}
           <footer className="text-center mt-6 text-xs text-muted-foreground/70">
             <p>&copy; {new Date().getFullYear()} Token Time Machine. All rights reserved.</p>
-            <p className="mt-0.5">Data by DexGuru. For informational purposes only.</p>
+            <p className="mt-0.5">Donate: 0xe3ae135d179c2558a808998e50eca8bd052222e8</p>
           </footer>
         </div>
       </main>
