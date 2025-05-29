@@ -635,7 +635,7 @@ export default function Home() {
                 </div>
             </main>
             {/* History sidebar skeleton */}
-            <aside className="md:w-1/2 lg:w-3/5 xl:w-2/3 w-full h-full md:max-h-screen md:border-l border-border/30 dark:border-border/20">
+            <aside className="w-full flex-1 min-h-0 border-t md:border-t-0 md:border-l border-border/30 dark:border-border/20 md:w-1/2 lg:w-3/5 xl:w-2/3 md:flex-initial md:min-h-fit md:h-full md:max-h-screen">
                  <div className="h-full flex flex-col bg-card/30 dark:bg-muted/10 p-4 animate-pulse">
                     <div className="h-8 bg-muted/50 dark:bg-muted/30 rounded-md mb-4 w-1/2"></div> {/* History title */}
                     <div className="space-y-3">
@@ -730,7 +730,7 @@ export default function Home() {
       </main>
 
       {/* History Sidebar */}
-      <aside className="md:w-1/2 lg:w-3/5 xl:w-2/3 w-full h-full md:max-h-screen md:border-l border-border/30 dark:border-border/20">
+      <aside className="w-full flex-1 min-h-0 border-t md:border-t-0 md:border-l border-border/30 dark:border-border/20 md:w-1/2 lg:w-3/5 xl:w-2/3 md:flex-initial md:min-h-fit md:h-full md:max-h-screen">
         <CalculationHistory
           calculationHistory={calculationHistory}
           onRemove={removeHistoryItem}
