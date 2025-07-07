@@ -405,6 +405,14 @@ export default function Home() {
   const [calculationHistory, setCalculationHistory] = useState<CalculationHistoryItem[]>([]);
   const [isConnectorChooserOpen, setIsConnectorChooserOpen] = useState(false);
   const [showHistoryMobile, setShowHistoryMobile] = useState(false);
+  
+  // Subscription management
+  const [subscriptionData, setSubscriptionData] = useState({
+    calculationsToday: 0,
+    maxCalculationsPerDay: 10,
+    tier: 'free'
+  });
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { address, status: accountStatus } = useAccount();
   const { connect, connectors, error: connectError, isPending: isConnecting, pendingConnector } = useConnect();
@@ -426,6 +434,26 @@ export default function Home() {
 
   useEffect(() => {
     if (isClient) {
+      // Load subscription data
+      const savedSubscription = localStorage.getItem('subscriptionData');
+      if (savedSubscription) {
+        try {
+          const parsed = JSON.parse(savedSubscription);
+          // Reset daily counter if it's a new day
+          const today = new Date().toDateString();
+          const lastUsedDate = localStorage.getItem('lastCalculationDate');
+          
+          if (lastUsedDate !== today) {
+            parsed.calculationsToday = 0;
+          }
+          
+          setSubscriptionData(parsed);
+        } catch (e) {
+          console.error("Error loading subscription data:", e);
+        }
+      }
+
+      // Load calculation history
       const storedHistory = localStorage.getItem('calculationHistory_v4'); 
       if (storedHistory) {
         try {
@@ -462,6 +490,12 @@ export default function Home() {
   }, [calculationHistory, isClient]);
 
   const calculateResult = useCallback(async () => {
+    // Check subscription limits
+    if (subscriptionData.tier === 'free' && subscriptionData.calculationsToday >= subscriptionData.maxCalculationsPerDay) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     const parsedPurchaseAmountUSD = parseFloat(purchaseAmountUSD);
 
     if (!tokenName.trim()) {
@@ -492,6 +526,15 @@ export default function Home() {
 
       const result = await calculateProfitLoss(input);
       setCalculationResult(result);
+
+      // Increment calculation counter for free users
+      if (subscriptionData.tier === 'free') {
+        const newCount = subscriptionData.calculationsToday + 1;
+        const newSubscriptionData = { ...subscriptionData, calculationsToday: newCount };
+        setSubscriptionData(newSubscriptionData);
+        localStorage.setItem('subscriptionData', JSON.stringify(newSubscriptionData));
+        localStorage.setItem('lastCalculationDate', new Date().toDateString());
+      }
 
       const newHistoryItem: CalculationHistoryItem = {
         tokenName: input.tokenName, // User's original search input
